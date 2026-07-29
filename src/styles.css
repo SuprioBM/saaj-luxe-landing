@@ -199,3 +199,18 @@
   );
 }
 
+@utility saaj-rail {
+  scrollbar-width: thin;
+  scrollbar-color: var(--saaj-line) transparent;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--saaj-line);
+  }
+}
+
+

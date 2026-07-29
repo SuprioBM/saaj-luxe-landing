@@ -150,5 +150,52 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
 }
+
+@utility eyebrow {
+  font-size: 0.625rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+@utility rule-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--saaj-line);
+  transition:
+    border-color 0.4s ease,
+    color 0.4s ease;
+
+  &:hover {
+    color: var(--saaj-champagne);
+    border-color: var(--saaj-champagne);
+  }
+}
+
+@utility panel-fade {
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, black 88%, transparent),
+    color-mix(in oklab, black 20%, transparent) 55%,
+    transparent
+  );
+}
+
+@utility hero-fade {
+  background: linear-gradient(
+    to right,
+    var(--background) 0%,
+    color-mix(in oklab, var(--background) 70%, transparent) 32%,
+    transparent 70%
+  );
+}
+

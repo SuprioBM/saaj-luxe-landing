@@ -65,7 +65,7 @@ function ProductPage() {
             </p>
 
             <ul className="mt-8 flex flex-col gap-3">
-              {product.materials.map((m) => (
+              {product.materials.map((m: string) => (
                 <li
                   key={m}
                   className="border-b border-saaj-line pb-3 text-[0.6875rem] uppercase tracking-[0.2em] text-foreground/80"

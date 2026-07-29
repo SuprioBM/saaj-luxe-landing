@@ -1,26 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  Globe,
-  Menu,
-  RotateCcw,
-  Search,
-  ShieldCheck,
-  ShoppingBag,
-  Sparkles,
-  User,
-} from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowRight, Globe, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
+
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
+import { CATEGORIES, PRODUCTS, inr } from "@/data/catalog";
+import { cart } from "@/lib/cart";
 
 import hero from "@/assets/hero.jpg";
-import catShirts from "@/assets/cat-shirts.jpg";
-import catChains from "@/assets/cat-chains.jpg";
-import catRings from "@/assets/cat-rings.jpg";
-import catBracelets from "@/assets/cat-bracelets.jpg";
 import philosophy from "@/assets/philosophy.jpg";
 import p1 from "@/assets/p1.jpg";
-import p2 from "@/assets/p2.jpg";
 import p3 from "@/assets/p3.jpg";
-import p4 from "@/assets/p4.jpg";
 import p5 from "@/assets/p5.jpg";
 
 const TITLE = "SAAJ — Shirts, Chains & Rings for the Few";
@@ -39,47 +28,6 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const NAV = ["Shop", "Shirts", "Accessories", "Collections", "About"];
-
-const CATEGORIES = [
-  {
-    n: "01",
-    title: "Shirts",
-    copy: ["Timeless fits,", "modern silhouettes."],
-    cta: "Shop Shirts",
-    img: catShirts,
-  },
-  {
-    n: "02",
-    title: "Neckchains",
-    copy: ["Wear meaning,", "carry confidence."],
-    cta: "Shop Neckchains",
-    img: catChains,
-  },
-  {
-    n: "03",
-    title: "Rings",
-    copy: ["Small details,", "big statements."],
-    cta: "Shop Rings",
-    img: catRings,
-  },
-  {
-    n: "04",
-    title: "Bracelets",
-    copy: ["Subtle, strong,", "unapologetic."],
-    cta: "Shop Bracelets",
-    img: catBracelets,
-  },
-];
-
-const PRODUCTS = [
-  { name: "Noir Crinkle Shirt", price: "₹2,699", img: p1, isNew: false },
-  { name: "Linen Structure Shirt", price: "₹2,799", img: p2, isNew: true },
-  { name: "Rope Chain 3mm", price: "₹1,899", img: p3, isNew: false },
-  { name: "Obsidian Signet Ring", price: "₹1,499", img: p4, isNew: false },
-  { name: "Void Chain Bracelet", price: "₹1,799", img: p5, isNew: false },
-];
-
 const SERVICES = [
   { Icon: Sparkles, title: "Premium Quality", copy: ["Finest materials.", "Built to last."] },
   { Icon: ShieldCheck, title: "Secure Payment", copy: ["100% safe &", "secured checkout."] },
@@ -90,35 +38,7 @@ const SERVICES = [
 function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-saaj-line bg-background/90 backdrop-blur">
-        <div className="flex items-center justify-between px-5 py-4 md:px-8">
-          <div className="flex items-center gap-5">
-            <Menu className="h-5 w-5" strokeWidth={1.25} />
-            <span className="font-display text-2xl tracking-[0.42em] md:text-3xl">SAAJ</span>
-          </div>
-          <nav className="hidden items-center gap-10 lg:flex">
-            {NAV.map((item) => (
-              <a
-                key={item}
-                href="#"
-                className="text-[0.6875rem] uppercase tracking-[0.24em] text-foreground/80 transition-colors hover:text-saaj-champagne"
-              >
-                {item}
-              </a>
-            ))}
-          </nav>
-          <div className="flex items-center gap-5">
-            <Search className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
-            <User className="hidden h-[1.15rem] w-[1.15rem] sm:block" strokeWidth={1.25} />
-            <div className="relative">
-              <ShoppingBag className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
-              <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-saaj-champagne text-[0.5rem] font-medium text-background">
-                0
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main>
         {/* Hero */}
@@ -189,36 +109,53 @@ function Index() {
           </div>
         </section>
 
-        {/* Categories */}
-        <section className="grid grid-cols-1 gap-px bg-saaj-line sm:grid-cols-2 lg:grid-cols-4">
-          {CATEGORIES.map((c) => (
-            <article key={c.title} className="group relative h-[320px] overflow-hidden bg-black">
-              <img
-                src={c.img}
-                alt={`${c.title} category`}
-                loading="lazy"
-                width={700}
-                height={800}
-                className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="panel-fade absolute inset-0" />
-              <div className="relative flex h-full flex-col p-7">
-                <span className="text-[0.625rem] tracking-[0.24em] text-muted-foreground">
-                  {c.n}
-                </span>
-                <h2 className="mt-3 font-display text-3xl font-light">{c.title}</h2>
-                <p className="mt-auto text-xs leading-relaxed text-muted-foreground">
-                  {c.copy[0]}
-                  <br />
-                  {c.copy[1]}
-                </p>
-                <a href="#new-arrivals" className="rule-link mt-6 self-start">
-                  {c.cta}
-                  <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
-                </a>
-              </div>
-            </article>
-          ))}
+        {/* Categories — horizontal scroll */}
+        <section className="border-y border-saaj-line py-10">
+          <div className="flex items-center justify-between gap-6 px-5 pb-6 md:px-8">
+            <div className="flex items-center gap-5">
+              <h2 className="eyebrow">Categories</h2>
+              <span className="h-px w-16 bg-saaj-line" />
+            </div>
+            <span className="text-[0.625rem] tracking-[0.22em] text-muted-foreground">
+              SCROLL →
+            </span>
+          </div>
+
+          <div className="saaj-rail flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 md:px-8">
+            {CATEGORIES.map((c) => (
+              <Link
+                key={c.slug}
+                to="/category/$slug"
+                params={{ slug: c.slug }}
+                className="group relative h-[380px] w-[78vw] shrink-0 snap-start overflow-hidden border border-saaj-line bg-black sm:w-[46vw] lg:w-[28vw]"
+              >
+                <img
+                  src={c.img}
+                  alt={`${c.title} category`}
+                  loading="lazy"
+                  width={700}
+                  height={800}
+                  className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="panel-fade absolute inset-0" />
+                <div className="relative flex h-full flex-col p-7">
+                  <span className="text-[0.625rem] tracking-[0.24em] text-muted-foreground">
+                    {c.n}
+                  </span>
+                  <h3 className="mt-3 font-display text-3xl font-light">{c.title}</h3>
+                  <p className="mt-auto text-xs leading-relaxed text-muted-foreground">
+                    {c.copy[0]}
+                    <br />
+                    {c.copy[1]}
+                  </p>
+                  <span className="rule-link mt-6 self-start">
+                    {c.cta}
+                    <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
         </section>
 
         {/* New arrivals */}
@@ -228,24 +165,29 @@ function Index() {
               <h2 className="eyebrow">New Arrivals</h2>
               <span className="h-px w-16 bg-saaj-line" />
             </div>
-            <a
-              href="#"
+            <Link
+              to="/category/$slug"
+              params={{ slug: "shirts" }}
               className="flex items-center gap-3 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:text-saaj-champagne"
             >
               View all
               <span className="flex h-8 w-8 items-center justify-center rounded-full border border-saaj-line">
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.25} />
               </span>
-            </a>
+            </Link>
           </div>
 
           <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             {PRODUCTS.map((p) => (
               <article
-                key={p.name}
+                key={p.slug}
                 className="group border border-saaj-line bg-saaj-panel transition-colors hover:border-saaj-champagne/40"
               >
-                <div className="relative aspect-[4/5] overflow-hidden">
+                <Link
+                  to="/product/$slug"
+                  params={{ slug: p.slug }}
+                  className="relative block aspect-[4/5] overflow-hidden"
+                >
                   <img
                     src={p.img}
                     alt={p.name}
@@ -259,15 +201,22 @@ function Index() {
                       NEW
                     </span>
                   )}
-                </div>
+                </Link>
                 <div className="flex items-end justify-between gap-3 p-4">
                   <div>
-                    <h3 className="text-xs leading-snug">{p.name}</h3>
-                    <p className="mt-2 text-xs text-muted-foreground">{p.price}</p>
+                    <Link
+                      to="/product/$slug"
+                      params={{ slug: p.slug }}
+                      className="text-xs leading-snug hover:text-saaj-champagne"
+                    >
+                      {p.name}
+                    </Link>
+                    <p className="mt-2 text-xs text-muted-foreground">{inr(p.price)}</p>
                   </div>
                   <button
                     type="button"
                     aria-label={`Add ${p.name} to bag`}
+                    onClick={() => cart.add(p.slug)}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-saaj-line transition-colors hover:border-saaj-champagne hover:text-saaj-champagne"
                   >
                     <span className="text-sm leading-none">+</span>
@@ -342,14 +291,7 @@ function Index() {
         </section>
       </main>
 
-      <footer className="border-t border-saaj-line px-5 py-10 md:px-8">
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-          <span className="font-display text-xl tracking-[0.42em]">SAAJ</span>
-          <p className="text-[0.625rem] tracking-[0.22em] text-muted-foreground">
-            © 2026 SAAJ — MADE FOR THE FEW
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

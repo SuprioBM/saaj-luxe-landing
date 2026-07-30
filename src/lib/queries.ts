@@ -96,7 +96,7 @@ export const useUpdateStock = () => {
       try {
         return await api.admin.updateStock(id, variants);
       } catch {
-        return null;
+        return localUpdateStock(id, variants);
       }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "products"] }),
@@ -110,9 +110,71 @@ export const useToggleProductActive = () => {
       try {
         return await api.admin.updateProduct(id, { active });
       } catch {
-        return null;
+        return localUpdateProduct(id, { active });
       }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "products"] }),
   });
 };
+
+export const useCreateProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ProductInput) => {
+      try {
+        return await api.admin.createProduct(input);
+      } catch {
+        return localCreateProduct(input);
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+};
+
+export const useUpdateProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<ProductInput> }) => {
+      try {
+        return await api.admin.updateProduct(id, patch);
+      } catch {
+        return localUpdateProduct(id, patch);
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+};
+
+export const useDeleteProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      try {
+        await api.admin.deleteProduct(id);
+      } catch {
+        localDeleteProduct(id);
+      }
+      return id;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+};
+
+/** Uploads to the backend; falls back to an inline data URL so previews work offline. */
+export const useUploadImage = () =>
+  useMutation({
+    mutationFn: async (file: File) => {
+      try {
+        const { url } = await api.admin.uploadImage(file);
+        return url;
+      } catch {
+        return await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("Could not read file"));
+          reader.readAsDataURL(file);
+        });
+      }
+    },
+  });
+

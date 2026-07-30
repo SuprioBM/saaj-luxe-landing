@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Heart, Menu, Search, ShoppingBag, X } from "lucide-react";
+import { ArrowRight, Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CATEGORIES, PRODUCTS, inr } from "@/data/catalog";

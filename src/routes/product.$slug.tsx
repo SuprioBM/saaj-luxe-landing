@@ -44,7 +44,7 @@ export const Route = createFileRoute("/product/$slug")({
 
 function ProductPage() {
   const { product } = Route.useLoaderData();
-  const gallery = product.gallery?.length ? product.gallery : [product.img];
+  const gallery: string[] = product.gallery?.length ? product.gallery : [product.img];
   const [shot, setShot] = useState(0);
   const [size, setSize] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -54,7 +54,7 @@ function ProductPage() {
     setShot(0);
     setSize(null);
     setQty(1);
-    recentlyViewed.add(product.slug);
+    recentlyViewed.push(product.slug);
   }, [product.slug]);
 
   const available = stockForSize(product, size);
@@ -85,7 +85,7 @@ function ProductPage() {
             </div>
             {gallery.length > 1 && (
               <div className="saaj-rail flex gap-2 overflow-x-auto p-3">
-                {gallery.map((g, i) => (
+                {gallery.map((g: string, i: number) => (
                   <button
                     key={g}
                     type="button"
@@ -179,7 +179,7 @@ function ProductPage() {
               <span className="h-px flex-1 bg-saaj-line" />
             </div>
             <div className="mt-8 grid grid-cols-1 gap-px bg-saaj-line md:grid-cols-3">
-              {product.reviews.map((r) => (
+              {product.reviews.map((r: { author: string; date: string; rating: number; body: string }) => (
                 <article key={r.author + r.date} className="bg-background p-6">
                   <StarRating value={r.rating} />
                   <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{r.body}</p>

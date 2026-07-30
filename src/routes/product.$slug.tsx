@@ -1,10 +1,20 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
+import { ProductCard } from "@/components/ProductCard";
+import { QtyStepper } from "@/components/QtyStepper";
+import { RecentlyViewedRail } from "@/components/RecentlyViewedRail";
+import { SizePicker } from "@/components/SizePicker";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { PRODUCTS, findProduct, inr } from "@/data/catalog";
+import { StarRating } from "@/components/StarRating";
+import { StockBadge } from "@/components/StockBadge";
+import { WishlistButton } from "@/components/WishlistButton";
+import { PRODUCTS, avgRating, findProduct, inr, stockForSize } from "@/data/catalog";
 import { cart } from "@/lib/cart";
+import { recentlyViewed } from "@/lib/recently-viewed";
 
 export const Route = createFileRoute("/product/$slug")({
   loader: ({ params }) => {
@@ -34,7 +44,25 @@ export const Route = createFileRoute("/product/$slug")({
 
 function ProductPage() {
   const { product } = Route.useLoaderData();
-  const related = PRODUCTS.filter((p) => p.slug !== product.slug).slice(0, 4);
+  const gallery = product.gallery?.length ? product.gallery : [product.img];
+  const [shot, setShot] = useState(0);
+  const [size, setSize] = useState<string | null>(null);
+  const [qty, setQty] = useState(1);
+  const [zoom, setZoom] = useState(false);
+
+  useEffect(() => {
+    setShot(0);
+    setSize(null);
+    setQty(1);
+    recentlyViewed.add(product.slug);
+  }, [product.slug]);
+
+  const available = stockForSize(product, size);
+  const related = PRODUCTS.filter(
+    (p) => p.slug !== product.slug && p.category === product.category,
+  )
+    .concat(PRODUCTS.filter((p) => p.slug !== product.slug && p.category !== product.category))
+    .slice(0, 4);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -42,11 +70,36 @@ function ProductPage() {
       <main>
         <section className="grid grid-cols-1 gap-px bg-saaj-line lg:grid-cols-2">
           <div className="bg-saaj-panel">
-            <img
-              src={product.img}
-              alt={product.name}
-              className="h-full max-h-[80vh] w-full object-cover"
-            />
+            <div
+              className="overflow-hidden"
+              onMouseEnter={() => setZoom(true)}
+              onMouseLeave={() => setZoom(false)}
+            >
+              <img
+                src={gallery[shot]}
+                alt={`${product.name} — view ${shot + 1}`}
+                className={`h-full max-h-[80vh] w-full object-cover transition-transform duration-700 ${
+                  zoom ? "scale-125" : "scale-100"
+                }`}
+              />
+            </div>
+            {gallery.length > 1 && (
+              <div className="saaj-rail flex gap-2 overflow-x-auto p-3">
+                {gallery.map((g, i) => (
+                  <button
+                    key={g}
+                    type="button"
+                    aria-label={`View image ${i + 1}`}
+                    onClick={() => setShot(i)}
+                    className={`h-20 w-16 shrink-0 overflow-hidden border transition-colors ${
+                      i === shot ? "border-saaj-champagne" : "border-saaj-line"
+                    }`}
+                  >
+                    <img src={g} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col justify-center bg-background px-6 py-14 md:px-12">
@@ -58,13 +111,50 @@ function ProductPage() {
               {product.category}
             </Link>
             <h1 className="mt-5 font-display text-4xl font-light md:text-5xl">{product.name}</h1>
+
+            <div className="mt-4 flex items-center gap-3">
+              <StarRating value={avgRating(product)} />
+              <span className="text-[0.625rem] tracking-[0.2em] text-muted-foreground">
+                {product.reviews.length} REVIEWS
+              </span>
+            </div>
+
             <p className="mt-4 text-sm text-saaj-champagne">{inr(product.price)}</p>
             <span className="mt-8 block h-px w-14 bg-saaj-line" />
             <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
               {product.detail}
             </p>
 
-            <ul className="mt-8 flex flex-col gap-3">
+            <div className="mt-9">
+              <p className="eyebrow mb-3">Select Size</p>
+              <SizePicker sizes={product.sizes} value={size} onChange={setSize} />
+            </div>
+
+            {size && (
+              <div className="mt-6 flex items-center gap-5">
+                <StockBadge qty={available} />
+                <QtyStepper value={qty} max={Math.max(1, available)} onChange={setQty} />
+              </div>
+            )}
+
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                disabled={!size || available <= 0}
+                onClick={() => {
+                  if (!size) return;
+                  cart.add(product.slug, size, qty);
+                  toast.success(`${product.name} — ${size} added to bag`);
+                }}
+                className="flex items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:cursor-not-allowed disabled:text-muted-foreground/50 sm:w-72"
+              >
+                {size ? "Add to bag" : "Select a size"}
+                <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+              </button>
+              <WishlistButton slug={product.slug} label="Save" />
+            </div>
+
+            <ul className="mt-10 flex flex-col gap-3">
               {product.materials.map((m: string) => (
                 <li
                   key={m}
@@ -75,50 +165,46 @@ function ProductPage() {
               ))}
             </ul>
 
-            <button
-              type="button"
-              onClick={() => cart.add(product.slug)}
-              className="mt-10 flex w-full items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne sm:w-72"
-            >
-              Add to bag
-              <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
-            </button>
-            <Link to="/cart" className="rule-link mt-8 self-start">
+            <Link to="/cart" className="rule-link mt-9 self-start">
               View bag
               <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
             </Link>
           </div>
         </section>
 
-        <section className="px-5 py-20 md:px-8 md:py-28">
+        {product.reviews.length > 0 && (
+          <section className="border-t border-saaj-line px-5 py-16 md:px-8 md:py-20">
+            <div className="flex items-center gap-5">
+              <h2 className="eyebrow">Reviews</h2>
+              <span className="h-px flex-1 bg-saaj-line" />
+            </div>
+            <div className="mt-8 grid grid-cols-1 gap-px bg-saaj-line md:grid-cols-3">
+              {product.reviews.map((r) => (
+                <article key={r.author + r.date} className="bg-background p-6">
+                  <StarRating value={r.rating} />
+                  <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{r.body}</p>
+                  <p className="mt-5 text-[0.625rem] uppercase tracking-[0.22em] text-foreground/70">
+                    {r.author} — {r.date}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="px-5 py-16 md:px-8 md:py-24">
           <div className="flex items-center gap-5">
             <h2 className="eyebrow">You may also wear</h2>
             <span className="h-px flex-1 bg-saaj-line" />
           </div>
           <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {related.map((p) => (
-              <Link
-                key={p.slug}
-                to="/product/$slug"
-                params={{ slug: p.slug }}
-                className="group border border-saaj-line bg-saaj-panel transition-colors hover:border-saaj-champagne/40"
-              >
-                <div className="aspect-[4/5] overflow-hidden">
-                  <img
-                    src={p.img}
-                    alt={p.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="text-xs leading-snug">{p.name}</h3>
-                  <p className="mt-2 text-xs text-muted-foreground">{inr(p.price)}</p>
-                </div>
-              </Link>
+              <ProductCard key={p.slug} product={p} />
             ))}
           </div>
         </section>
+
+        <RecentlyViewedRail exclude={product.slug} />
       </main>
       <SiteFooter />
     </div>

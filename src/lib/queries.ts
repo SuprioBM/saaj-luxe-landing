@@ -7,14 +7,20 @@ import {
   type ApiProduct,
   type ApiUser,
   type OrderStatus,
+  type ProductInput,
 } from "@/lib/api";
 import {
+  localCreateProduct,
   localCustomers,
+  localDeleteProduct,
   localOrders,
   localProducts,
   localStats,
+  localUpdateProduct,
+  localUpdateStock,
   setLocalOrderStatus,
 } from "@/lib/api-fallback";
+
 
 /** Try the real endpoint, fall back to local demo data while the backend is pending. */
 async function withFallback<T>(call: () => Promise<T>, fallback: () => T): Promise<T> {

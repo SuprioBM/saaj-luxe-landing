@@ -1,16 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Globe, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
 
+import { HeroSlider } from "@/components/HeroSlider";
+import { ProductCard } from "@/components/ProductCard";
+import { RecentlyViewedRail } from "@/components/RecentlyViewedRail";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { CATEGORIES, PRODUCTS, inr } from "@/data/catalog";
-import { cart } from "@/lib/cart";
-
-import hero from "@/assets/hero.jpg";
-import philosophy from "@/assets/philosophy.jpg";
-import p1 from "@/assets/p1.jpg";
-import p3 from "@/assets/p3.jpg";
-import p5 from "@/assets/p5.jpg";
+import { CATEGORIES, PHILOSOPHY_IMG, PRODUCTS } from "@/data/catalog";
 
 const TITLE = "SAAJ — Shirts, Chains & Rings for the Few";
 const DESCRIPTION =
@@ -36,78 +32,16 @@ const SERVICES = [
 ];
 
 function Index() {
+  const newArrivals = [...PRODUCTS]
+    .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
+    .slice(0, 5);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
 
       <main>
-        {/* Hero */}
-        <section className="relative overflow-hidden">
-          <div className="relative min-h-[640px] md:min-h-[760px]">
-            <img
-              src={hero}
-              alt="Model in a black crinkle shirt with a silver chain, shot in low light"
-              width={1200}
-              height={1408}
-              className="absolute inset-0 h-full w-full object-cover object-[65%_top] md:left-auto md:right-0 md:w-[62%]"
-            />
-            <div className="hero-fade absolute inset-0" />
-
-            <div className="relative grid grid-cols-[2.5rem_1fr] gap-4 px-5 py-20 md:grid-cols-[5rem_1fr] md:px-8 md:py-28">
-              <ol className="flex flex-col gap-6 pt-2">
-                {["01", "02", "03", "04"].map((n, i) => (
-                  <li
-                    key={n}
-                    className={
-                      i === 0
-                        ? "flex items-center gap-3 text-[0.625rem] tracking-[0.2em]"
-                        : "text-[0.625rem] tracking-[0.2em] text-muted-foreground/60"
-                    }
-                  >
-                    {n}
-                    {i === 0 && <span className="h-px w-6 bg-saaj-champagne" />}
-                  </li>
-                ))}
-              </ol>
-
-              <div className="max-w-xl">
-                <p className="eyebrow">Shirts. Accessories. Presence.</p>
-                <h1 className="mt-7 text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] md:text-[4.25rem]">
-                  Not for
-                  <br />
-                  everyone.
-                  <br />
-                  <span className="font-display italic text-saaj-champagne">Made for you.</span>
-                </h1>
-                <span className="mt-10 block h-px w-14 bg-saaj-line" />
-                <a href="#new-arrivals" className="rule-link mt-10">
-                  Explore Collection
-                  <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
-                </a>
-              </div>
-            </div>
-
-            <div className="relative hidden px-8 pb-14 lg:block">
-              <div className="ml-auto w-fit">
-                <p className="eyebrow">New Drop</p>
-                <p className="mt-2 text-sm">Shadow Edit '24</p>
-                <div className="mt-4 flex gap-3">
-                  {[p1, p3, p5].map((img, i) => (
-                    <img
-                      key={i}
-                      src={img}
-                      alt="Shadow Edit piece"
-                      loading="lazy"
-                      width={640}
-                      height={760}
-                      className="h-16 w-16 border border-saaj-line object-cover opacity-80 transition-opacity hover:opacity-100"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <HeroSlider />
 
         {/* Categories — horizontal scroll */}
         <section className="border-y border-saaj-line py-10">
@@ -166,8 +100,7 @@ function Index() {
               <span className="h-px w-16 bg-saaj-line" />
             </div>
             <Link
-              to="/category/$slug"
-              params={{ slug: "shirts" }}
+              to="/shop"
               className="flex items-center gap-3 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:text-saaj-champagne"
             >
               View all
@@ -178,92 +111,41 @@ function Index() {
           </div>
 
           <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-            {PRODUCTS.map((p) => (
-              <article
-                key={p.slug}
-                className="group border border-saaj-line bg-saaj-panel transition-colors hover:border-saaj-champagne/40"
-              >
-                <Link
-                  to="/product/$slug"
-                  params={{ slug: p.slug }}
-                  className="relative block aspect-[4/5] overflow-hidden"
-                >
-                  <img
-                    src={p.img}
-                    alt={p.name}
-                    loading="lazy"
-                    width={640}
-                    height={760}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  {p.isNew && (
-                    <span className="absolute left-3 top-3 border border-saaj-line bg-background/70 px-2 py-1 text-[0.5625rem] tracking-[0.22em]">
-                      NEW
-                    </span>
-                  )}
-                </Link>
-                <div className="flex items-end justify-between gap-3 p-4">
-                  <div>
-                    <Link
-                      to="/product/$slug"
-                      params={{ slug: p.slug }}
-                      className="text-xs leading-snug hover:text-saaj-champagne"
-                    >
-                      {p.name}
-                    </Link>
-                    <p className="mt-2 text-xs text-muted-foreground">{inr(p.price)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label={`Add ${p.name} to bag`}
-                    onClick={() => cart.add(p.slug)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-saaj-line transition-colors hover:border-saaj-champagne hover:text-saaj-champagne"
-                  >
-                    <span className="text-sm leading-none">+</span>
-                  </button>
-                </div>
-              </article>
+            {newArrivals.map((p) => (
+              <ProductCard key={p.slug} product={p} />
             ))}
           </div>
         </section>
 
-        {/* Philosophy split */}
-        <section className="grid grid-cols-1 gap-px bg-saaj-line lg:grid-cols-[1fr_0.8fr_1fr]">
-          <div className="flex flex-col justify-center bg-background px-7 py-16 md:px-10">
-            <p className="eyebrow">SAAJ Edit</p>
-            <h2 className="mt-6 font-display text-4xl font-light leading-[1.15] md:text-5xl">
-              Essentials
-              <br />
-              that elevate
-              <br />
-              every moment.
-            </h2>
-            <a href="#new-arrivals" className="rule-link mt-10 self-start">
-              Explore Edit
-              <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
-            </a>
+        <RecentlyViewedRail />
+
+        {/* Philosophy */}
+        <section className="relative grid grid-cols-1 gap-px border-y border-saaj-line bg-saaj-line lg:grid-cols-2">
+          <div className="bg-saaj-panel">
+            <img
+              src={PHILOSOPHY_IMG}
+              alt="SAAJ lifestyle portrait in low light"
+              loading="lazy"
+              className="h-full max-h-[640px] w-full object-cover"
+            />
           </div>
-
-          <img
-            src={philosophy}
-            alt="Portrait of a man in a black shirt and silver chain in dramatic shadow"
-            loading="lazy"
-            width={700}
-            height={900}
-            className="h-full min-h-[340px] w-full object-cover"
-          />
-
-          <div className="relative flex flex-col justify-center bg-background px-7 py-16 md:px-10">
+          <div className="relative flex flex-col justify-center bg-background px-6 py-16 md:px-12 md:py-24">
             <p className="eyebrow">Our Philosophy</p>
-            <p className="mt-6 font-display text-3xl font-light leading-[1.25] md:text-[2.1rem]">
-              We don't follow trends.
+            <h2 className="mt-6 font-display text-4xl font-light leading-tight md:text-5xl">
+              We don't follow
               <br />
-              We define identity.
+              trends.
+              <br />
+              <span className="italic text-saaj-champagne">We define identity.</span>
+            </h2>
+            <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
+              Every SAAJ piece begins in shadow — a silhouette, a weight, a line. We make few
+              things, slowly, for people who already know what they want to look like.
             </p>
-            <a href="#" className="rule-link mt-9 self-start">
-              Read Our Story
+            <Link to="/shop" className="rule-link mt-9 self-start">
+              Explore the collection
               <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
-            </a>
+            </Link>
 
             <div className="mt-12 flex h-24 w-24 items-center justify-center rounded-full border border-saaj-champagne/40 lg:absolute lg:right-10 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2">
               <span className="font-display text-2xl text-saaj-champagne">S</span>

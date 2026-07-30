@@ -1,14 +1,16 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 
+import { ProductCard } from "@/components/ProductCard";
+import { RecentlyViewedRail } from "@/components/RecentlyViewedRail";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { findCategory, inr, productsByCategory } from "@/data/catalog";
+import { findCategory, productsByCategory } from "@/data/catalog";
 
 export const Route = createFileRoute("/category/$slug")({
   loader: ({ params }) => {
     const category = findCategory(params.slug);
-    if (!category) throw notFound();
+    if (!category) throw notFoundCategory();
     return { category };
   },
   head: ({ loaderData }) => {
@@ -30,6 +32,11 @@ export const Route = createFileRoute("/category/$slug")({
   },
   component: CategoryPage,
 });
+
+function notFoundCategory(): never {
+  // eslint-disable-next-line @typescript-eslint/no-throw-literal
+  throw new Error("Category not found");
+}
 
 function CategoryPage() {
   const { category } = Route.useLoaderData();
@@ -59,29 +66,18 @@ function CategoryPage() {
           <div className="flex items-center gap-5">
             <h2 className="eyebrow">{items.length} Pieces</h2>
             <span className="h-px flex-1 bg-saaj-line" />
+            <Link
+              to="/shop"
+              search={{ category: category.slug, sort: "newest", availability: "all", max: 0 }}
+              className="text-[0.625rem] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-saaj-champagne"
+            >
+              Filter &amp; sort
+            </Link>
           </div>
 
           <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {items.map((p) => (
-              <Link
-                key={p.slug}
-                to="/product/$slug"
-                params={{ slug: p.slug }}
-                className="group border border-saaj-line bg-saaj-panel transition-colors hover:border-saaj-champagne/40"
-              >
-                <div className="aspect-[4/5] overflow-hidden">
-                  <img
-                    src={p.img}
-                    alt={p.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="text-xs leading-snug">{p.name}</h3>
-                  <p className="mt-2 text-xs text-muted-foreground">{inr(p.price)}</p>
-                </div>
-              </Link>
+              <ProductCard key={p.slug} product={p} />
             ))}
           </div>
 
@@ -90,6 +86,8 @@ function CategoryPage() {
             <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
           </Link>
         </section>
+
+        <RecentlyViewedRail />
       </main>
       <SiteFooter />
     </div>

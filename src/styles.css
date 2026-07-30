@@ -214,3 +214,63 @@
 }
 
 
+
+@keyframes saaj-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes saaj-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility saaj-slide-in {
+  animation: saaj-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  & > * {
+    animation: saaj-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  & > *:nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  & > *:nth-child(3) {
+    animation-delay: 0.16s;
+  }
+  & > *:nth-child(4) {
+    animation-delay: 0.22s;
+  }
+  & > *:nth-child(5) {
+    animation-delay: 0.3s;
+  }
+}
+
+@utility saaj-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--saaj-panel) 0%,
+    color-mix(in oklab, var(--saaj-panel) 60%, white 6%) 50%,
+    var(--saaj-panel) 100%
+  );
+  background-size: 200% 100%;
+  animation: saaj-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes saaj-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

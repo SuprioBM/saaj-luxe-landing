@@ -180,11 +180,11 @@ function ProductPage() {
             </div>
             <div className="mt-8 grid grid-cols-1 gap-px bg-saaj-line md:grid-cols-3">
               {product.reviews.map((r: Review) => (
-                <article key={r.author + r.date} className="bg-background p-6">
+                <article key={r.id} className="bg-background p-6">
                   <StarRating value={r.rating} />
                   <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{r.body}</p>
                   <p className="mt-5 text-[0.625rem] uppercase tracking-[0.22em] text-foreground/70">
-                    {r.author} — {r.date}
+                    {r.name} — {r.date}
                   </p>
                 </article>
               ))}

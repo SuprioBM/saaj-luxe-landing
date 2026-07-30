@@ -49,6 +49,9 @@ function ProductPage() {
   const [size, setSize] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [zoom, setZoom] = useState(false);
+  const touchX = useRef<number | null>(null);
+  const prev = () => setShot((i) => Math.max(0, i - 1));
+  const next = () => setShot((i) => Math.min(gallery.length - 1, i + 1));
 
   useEffect(() => {
     setShot(0);

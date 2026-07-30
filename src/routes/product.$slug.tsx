@@ -98,26 +98,17 @@ function ProductPage() {
                 draggable={false}
               />
               {gallery.length > 1 && (
-                <>
+                <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-4">
                   <button
                     type="button"
                     aria-label="Previous image"
                     onClick={prev}
                     disabled={shot === 0}
-                    className="absolute left-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-saaj-line bg-background/40 backdrop-blur-sm transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:pointer-events-none disabled:opacity-25 md:flex"
+                    className="hidden h-11 w-11 items-center justify-center rounded-full border border-saaj-line bg-background/40 backdrop-blur-sm transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:pointer-events-none disabled:opacity-25 md:flex"
                   >
                     <ChevronLeft className="h-4 w-4" strokeWidth={1.25} />
                   </button>
-                  <button
-                    type="button"
-                    aria-label="Next image"
-                    onClick={next}
-                    disabled={shot === gallery.length - 1}
-                    className="absolute right-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-saaj-line bg-background/40 backdrop-blur-sm transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:pointer-events-none disabled:opacity-25 md:flex"
-                  >
-                    <ChevronRight className="h-4 w-4" strokeWidth={1.25} />
-                  </button>
-                  <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 md:hidden">
+                  <div className="flex items-center gap-2">
                     {gallery.map((g: string, i: number) => (
                       <span
                         key={g}
@@ -127,8 +118,18 @@ function ProductPage() {
                       />
                     ))}
                   </div>
-                </>
+                  <button
+                    type="button"
+                    aria-label="Next image"
+                    onClick={next}
+                    disabled={shot === gallery.length - 1}
+                    className="hidden h-11 w-11 items-center justify-center rounded-full border border-saaj-line bg-background/40 backdrop-blur-sm transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:pointer-events-none disabled:opacity-25 md:flex"
+                  >
+                    <ChevronRight className="h-4 w-4" strokeWidth={1.25} />
+                  </button>
+                </div>
               )}
+
             </div>
 
             {gallery.length > 1 && (

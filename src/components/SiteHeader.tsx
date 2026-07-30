@@ -219,6 +219,8 @@ export function SiteHeader() {
                 { to: "/wishlist" as const, label: "Saved" },
                 { to: "/cart" as const, label: "Cart" },
                 { to: "/account" as const, label: "My Account" },
+                { to: "/contact" as const, label: "Contact" },
+
 
               ].map((l) => (
                 <Link

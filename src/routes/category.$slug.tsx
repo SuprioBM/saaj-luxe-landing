@@ -34,11 +34,6 @@ export const Route = createFileRoute("/category/$slug")({
   component: CategoryPage,
 });
 
-function notFoundCategory(): never {
-  // eslint-disable-next-line @typescript-eslint/no-throw-literal
-  throw new Error("Category not found");
-}
-
 function CategoryPage() {
   const { category } = Route.useLoaderData();
   const items = productsByCategory(category.slug);

@@ -10,6 +10,7 @@ import type {
   ApiProduct,
   ApiUser,
   OrderStatus,
+  ProductInput,
 } from "@/lib/api";
 import { ordersStore } from "@/lib/orders";
 
@@ -47,7 +48,9 @@ export const setLocalOrderStatus = (id: string, status: OrderStatus) => {
   statusOverrides.set(id, status);
 };
 
-export const localProducts = (): ApiProduct[] =>
+/* ---- local product registry (used until the backend is live) ---- */
+
+const seedProducts = (): ApiProduct[] =>
   PRODUCTS.map((p) => ({
     id: p.slug,
     slug: p.slug,
@@ -55,11 +58,42 @@ export const localProducts = (): ApiProduct[] =>
     category: p.category,
     price: p.price,
     image: p.img,
+    gallery: p.gallery,
     sku: p.sku,
+    detail: p.detail,
+    materials: p.materials,
+    tags: p.tags,
     isNew: p.isNew,
     active: true,
     variants: p.sizes.map((s) => ({ size: s.size, stock: s.stock })),
   }));
+
+let productStore: ApiProduct[] | null = null;
+const products = () => (productStore ??= seedProducts());
+
+export const localProducts = (): ApiProduct[] => products().map((p) => ({ ...p }));
+
+export const localCreateProduct = (input: ProductInput): ApiProduct => {
+  const product: ApiProduct = { ...input, id: input.slug || `p-${Date.now()}` };
+  products().unshift(product);
+  return product;
+};
+
+export const localUpdateProduct = (id: string, patch: Partial<ProductInput>): ApiProduct | null => {
+  const list = products();
+  const i = list.findIndex((p) => p.id === id);
+  if (i === -1) return null;
+  list[i] = { ...list[i], ...patch };
+  return list[i];
+};
+
+export const localDeleteProduct = (id: string) => {
+  productStore = products().filter((p) => p.id !== id);
+};
+
+export const localUpdateStock = (id: string, variants: { size: string; stock: number }[]) =>
+  localUpdateProduct(id, { variants });
+
 
 export const localStats = (): AdminStats => {
   const orders = localOrders();

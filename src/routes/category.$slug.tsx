@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 
 import { ProductCard } from "@/components/ProductCard";
@@ -10,9 +10,10 @@ import { findCategory, productsByCategory } from "@/data/catalog";
 export const Route = createFileRoute("/category/$slug")({
   loader: ({ params }) => {
     const category = findCategory(params.slug);
-    if (!category) throw notFoundCategory();
+    if (!category) throw notFound();
     return { category };
   },
+
   head: ({ loaderData }) => {
     if (!loaderData) {
       return {

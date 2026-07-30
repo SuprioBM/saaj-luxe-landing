@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Heart, Menu, Search, ShoppingBag, X } from "lucide-react";
+import { ArrowRight, Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CATEGORIES, PRODUCTS, inr } from "@/data/catalog";
@@ -76,6 +76,10 @@ export function SiteHeader() {
             <Link to="/wishlist" aria-label="Saved pieces" className="hidden sm:block">
               <Heart className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
             </Link>
+            <Link to="/account" aria-label="Account" className="hidden sm:block">
+              <User className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
+            </Link>
+
 
             <Link to="/cart" aria-label="Cart" className="relative">
               <ShoppingBag className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
@@ -214,7 +218,10 @@ export function SiteHeader() {
                 { to: "/about" as const, label: "Our Philosophy" },
                 { to: "/wishlist" as const, label: "Saved" },
                 { to: "/cart" as const, label: "Cart" },
+                { to: "/account" as const, label: "My Account" },
                 { to: "/contact" as const, label: "Contact" },
+
+
               ].map((l) => (
                 <Link
                   key={l.to}

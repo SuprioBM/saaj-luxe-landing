@@ -10,7 +10,7 @@ const TITLE = "Shop All — SAAJ";
 const DESCRIPTION =
   "The full SAAJ collection: shirts, neckchains, rings and bracelets. Filter by category, availability and price.";
 
-type Search = { category: string; sort: string; availability: string; max: number };
+type Search = { category?: string; sort?: string; availability?: string; max?: number };
 
 export const Route = createFileRoute("/shop")({
   validateSearch: (search: Record<string, unknown>): Search => ({
@@ -38,7 +38,7 @@ const SORTS = [
 ];
 
 function ShopPage() {
-  const { category, sort, availability, max } = Route.useSearch();
+  const { category = "all", sort = "newest", availability = "all", max = 0 } = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });
   const cap = max > 0 ? max : PRICE_MAX;
 

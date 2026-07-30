@@ -179,7 +179,7 @@ function ProductPage() {
               <span className="h-px flex-1 bg-saaj-line" />
             </div>
             <div className="mt-8 grid grid-cols-1 gap-px bg-saaj-line md:grid-cols-3">
-              {product.reviews.map((r: { author: string; date: string; rating: number; body: string }) => (
+              {product.reviews.map((r) => (
                 <article key={r.author + r.date} className="bg-background p-6">
                   <StarRating value={r.rating} />
                   <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{r.body}</p>

@@ -76,6 +76,10 @@ export function SiteHeader() {
             <Link to="/wishlist" aria-label="Saved pieces" className="hidden sm:block">
               <Heart className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
             </Link>
+            <Link to="/account" aria-label="Account" className="hidden sm:block">
+              <User className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
+            </Link>
+
 
             <Link to="/cart" aria-label="Cart" className="relative">
               <ShoppingBag className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />

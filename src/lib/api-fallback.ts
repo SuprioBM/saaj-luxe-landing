@@ -10,6 +10,7 @@ import type {
   ApiProduct,
   ApiUser,
   OrderStatus,
+  ProductInput,
 } from "@/lib/api";
 import { ordersStore } from "@/lib/orders";
 

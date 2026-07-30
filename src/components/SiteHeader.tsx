@@ -218,7 +218,8 @@ export function SiteHeader() {
                 { to: "/about" as const, label: "Our Philosophy" },
                 { to: "/wishlist" as const, label: "Saved" },
                 { to: "/cart" as const, label: "Cart" },
-                { to: "/contact" as const, label: "Contact" },
+                { to: "/account" as const, label: "My Account" },
+
               ].map((l) => (
                 <Link
                   key={l.to}

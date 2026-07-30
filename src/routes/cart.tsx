@@ -149,13 +149,14 @@ function CartPage() {
                 <span className="eyebrow">Total</span>
                 <span className="text-sm text-saaj-champagne">{inr(subtotal)}</span>
               </div>
-              <button
-                type="button"
+              <Link
+                to="/checkout"
                 className="mt-8 flex w-full items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne"
               >
                 Checkout
                 <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
-              </button>
+              </Link>
+
               <Link to="/shop" className="rule-link mt-8">
                 Continue shopping
                 <ArrowRight className="h-4 w-4" strokeWidth={1.25} />

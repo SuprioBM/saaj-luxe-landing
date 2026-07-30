@@ -219,12 +219,19 @@ export const api = {
   admin: {
     stats: () => apiFetch<AdminStats>("/admin/stats"),
     products: () => apiFetch<ApiProduct[]>("/admin/products"),
-    createProduct: (body: Partial<ApiProduct>) =>
+    createProduct: (body: ProductInput) =>
       apiFetch<ApiProduct>("/admin/products", { method: "POST", json: body }),
-    updateProduct: (id: string, body: Partial<ApiProduct>) =>
+    updateProduct: (id: string, body: Partial<ProductInput>) =>
       apiFetch<ApiProduct>(`/admin/products/${id}`, { method: "PATCH", json: body }),
     deleteProduct: (id: string) =>
       apiFetch<void>(`/admin/products/${id}`, { method: "DELETE" }),
+    /** Multipart upload — backend returns the stored asset URL. */
+    uploadImage: async (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiFetch<{ url: string }>("/admin/uploads", { method: "POST", body: form });
+    },
+
     updateStock: (id: string, variants: { size: string; stock: number }[]) =>
       apiFetch<ApiProduct>(`/admin/products/${id}/stock`, {
         method: "PATCH",

@@ -12,7 +12,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { StarRating } from "@/components/StarRating";
 import { StockBadge } from "@/components/StockBadge";
 import { WishlistButton } from "@/components/WishlistButton";
-import { PRODUCTS, avgRating, findProduct, inr, stockForSize } from "@/data/catalog";
+import { PRODUCTS, avgRating, findProduct, inr, stockForSize, type Review } from "@/data/catalog";
 import { cart } from "@/lib/cart";
 import { recentlyViewed } from "@/lib/recently-viewed";
 
@@ -179,7 +179,7 @@ function ProductPage() {
               <span className="h-px flex-1 bg-saaj-line" />
             </div>
             <div className="mt-8 grid grid-cols-1 gap-px bg-saaj-line md:grid-cols-3">
-              {product.reviews.map((r) => (
+              {product.reviews.map((r: Review) => (
                 <article key={r.author + r.date} className="bg-background p-6">
                   <StarRating value={r.rating} />
                   <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{r.body}</p>

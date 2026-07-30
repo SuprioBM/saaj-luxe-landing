@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ProductCard } from "@/components/ProductCard";
@@ -49,6 +49,9 @@ function ProductPage() {
   const [size, setSize] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [zoom, setZoom] = useState(false);
+  const touchX = useRef<number | null>(null);
+  const prev = () => setShot((i) => Math.max(0, i - 1));
+  const next = () => setShot((i) => Math.min(gallery.length - 1, i + 1));
 
   useEffect(() => {
     setShot(0);
@@ -71,9 +74,20 @@ function ProductPage() {
         <section className="grid grid-cols-1 gap-px bg-saaj-line lg:grid-cols-2">
           <div className="bg-saaj-panel">
             <div
-              className="overflow-hidden"
+              className="group relative overflow-hidden"
               onMouseEnter={() => setZoom(true)}
               onMouseLeave={() => setZoom(false)}
+              onTouchStart={(e) => {
+                touchX.current = e.touches[0].clientX;
+              }}
+              onTouchEnd={(e) => {
+                if (touchX.current === null) return;
+                const dx = e.changedTouches[0].clientX - touchX.current;
+                touchX.current = null;
+                if (Math.abs(dx) < 45) return;
+                if (dx < 0) next();
+                else prev();
+              }}
             >
               <img
                 src={gallery[shot]}
@@ -81,8 +95,42 @@ function ProductPage() {
                 className={`h-full max-h-[80vh] w-full object-cover transition-transform duration-700 ${
                   zoom ? "scale-125" : "scale-100"
                 }`}
+                draggable={false}
               />
+              {gallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Previous image"
+                    onClick={prev}
+                    disabled={shot === 0}
+                    className="absolute left-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-saaj-line bg-background/40 backdrop-blur-sm transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:pointer-events-none disabled:opacity-25 md:flex"
+                  >
+                    <ChevronLeft className="h-4 w-4" strokeWidth={1.25} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next image"
+                    onClick={next}
+                    disabled={shot === gallery.length - 1}
+                    className="absolute right-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-saaj-line bg-background/40 backdrop-blur-sm transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:pointer-events-none disabled:opacity-25 md:flex"
+                  >
+                    <ChevronRight className="h-4 w-4" strokeWidth={1.25} />
+                  </button>
+                  <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 md:hidden">
+                    {gallery.map((g: string, i: number) => (
+                      <span
+                        key={g}
+                        className={`h-px w-6 transition-colors ${
+                          i === shot ? "bg-saaj-champagne" : "bg-saaj-line"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
+
             {gallery.length > 1 && (
               <div className="saaj-rail flex gap-2 overflow-x-auto p-3">
                 {gallery.map((g: string, i: number) => (

@@ -142,11 +142,32 @@ export type ApiProduct = {
   category: string;
   price: number;
   image: string;
+  gallery?: string[];
   sku: string;
+  detail?: string;
+  materials?: string[];
+  tags?: string[];
   isNew?: boolean;
   active: boolean;
   variants: { size: string; stock: number }[];
 };
+
+export type ProductInput = {
+  name: string;
+  slug: string;
+  category: string;
+  price: number;
+  sku: string;
+  image: string;
+  gallery: string[];
+  detail: string;
+  materials: string[];
+  tags: string[];
+  isNew: boolean;
+  active: boolean;
+  variants: { size: string; stock: number }[];
+};
+
 
 export type AdminStats = {
   revenue: number;

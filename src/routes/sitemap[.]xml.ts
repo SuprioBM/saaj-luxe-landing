@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
+import { CATEGORIES, PRODUCTS } from "@/data/catalog";
+
 // TODO: replace with your project URL once a project name or custom domain is set.
 const BASE_URL = "";
 
@@ -15,7 +17,30 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const entries: SitemapEntry[] = [{ path: "/", changefreq: "weekly", priority: "1.0" }];
+        const entries: SitemapEntry[] = [
+          { path: "/", changefreq: "weekly", priority: "1.0" },
+          { path: "/shop", changefreq: "weekly", priority: "0.9" },
+          { path: "/lookbook", changefreq: "monthly", priority: "0.7" },
+          { path: "/about", changefreq: "yearly", priority: "0.6" },
+          { path: "/contact", changefreq: "yearly", priority: "0.5" },
+          { path: "/wishlist", changefreq: "monthly", priority: "0.3" },
+          { path: "/shipping", changefreq: "yearly", priority: "0.4" },
+          { path: "/returns", changefreq: "yearly", priority: "0.4" },
+          { path: "/privacy", changefreq: "yearly", priority: "0.3" },
+          { path: "/terms", changefreq: "yearly", priority: "0.3" },
+          ...CATEGORIES.map((c) => ({
+            path: `/category/${c.slug}`,
+            changefreq: "weekly" as const,
+            priority: "0.8",
+          })),
+          ...PRODUCTS.map((p) => ({
+            path: `/product/${p.slug}`,
+            lastmod: p.addedAt,
+            changefreq: "weekly" as const,
+            priority: "0.7",
+          })),
+        ];
+
 
         const urls = entries.map((e) =>
           [

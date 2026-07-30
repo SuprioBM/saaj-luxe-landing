@@ -73,7 +73,10 @@ export function SiteHeader() {
             >
               <Search className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
             </button>
-            <User className="hidden h-[1.15rem] w-[1.15rem] sm:block" strokeWidth={1.25} />
+            <Link to="/wishlist" aria-label="Saved pieces" className="hidden sm:block">
+              <Heart className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
+            </Link>
+
             <Link to="/cart" aria-label="Cart" className="relative">
               <ShoppingBag className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.25} />
               <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-saaj-champagne text-[0.5rem] font-medium text-background">
@@ -203,22 +206,27 @@ export function SiteHeader() {
               </Link>
             ))}
 
-            <div className="mt-10 flex flex-col gap-4">
-              <Link
-                to="/cart"
-                onClick={() => setMenuOpen(false)}
-                className="text-[0.6875rem] uppercase tracking-[0.24em] text-foreground/80 hover:text-saaj-champagne"
-              >
-                Cart
-              </Link>
-              <a
-                href="/#new-arrivals"
-                onClick={() => setMenuOpen(false)}
-                className="text-[0.6875rem] uppercase tracking-[0.24em] text-foreground/80 hover:text-saaj-champagne"
-              >
-                New Arrivals
-              </a>
+            <p className="eyebrow mb-4 mt-10">House</p>
+            <div className="flex flex-col gap-4">
+              {[
+                { to: "/shop" as const, label: "Shop All" },
+                { to: "/lookbook" as const, label: "Lookbook" },
+                { to: "/about" as const, label: "Our Philosophy" },
+                { to: "/wishlist" as const, label: "Saved" },
+                { to: "/cart" as const, label: "Cart" },
+                { to: "/contact" as const, label: "Contact" },
+              ].map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  onClick={() => setMenuOpen(false)}
+                  className="text-[0.6875rem] uppercase tracking-[0.24em] text-foreground/80 hover:text-saaj-champagne"
+                >
+                  {l.label}
+                </Link>
+              ))}
             </div>
+
           </nav>
 
           <div className="border-t border-saaj-line px-6 py-6">

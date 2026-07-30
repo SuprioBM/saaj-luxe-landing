@@ -43,7 +43,7 @@ function ShopPage() {
   const cap = max > 0 ? max : PRICE_MAX;
 
   const set = (patch: Partial<Search>) =>
-    navigate({ search: (prev) => ({ ...prev, ...patch }) });
+    navigate({ search: (prev: Search) => ({ ...prev, ...patch }) });
 
   let items = PRODUCTS.filter((p) => (category === "all" ? true : p.category === category))
     .filter((p) => p.price <= cap)

@@ -57,7 +57,7 @@ export function AdminShell({
           </p>
           <button
             type="button"
-            onClick={() => auth.logout()}
+            onClick={() => void auth.logout()}
             className="mt-3 flex items-center gap-2 text-[0.625rem] tracking-[0.22em] text-muted-foreground transition-colors hover:text-saaj-champagne"
           >
             SIGN OUT

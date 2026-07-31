@@ -35,6 +35,10 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const finish = (user: { role: string } | null) => {
+    void navigate({ to: user?.role === "ADMIN" ? "/admin" : "/account" });
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || password.length < 6 || (mode === "up" && !name.trim())) {
@@ -42,13 +46,32 @@ function AuthPage() {
       return;
     }
     setBusy(true);
-    const user =
-      mode === "in"
-        ? await auth.login(email.trim(), password)
-        : await auth.register(name.trim(), email.trim(), password);
-    setBusy(false);
-    toast.success(mode === "in" ? "Welcome back." : "Account created.");
-    void navigate({ to: user?.role === "ADMIN" ? "/admin" : "/account" });
+    try {
+      const user =
+        mode === "in"
+          ? await auth.login(email.trim(), password)
+          : await auth.register(name.trim(), email.trim(), password);
+      toast.success(mode === "in" ? "Welcome back." : "Account created.");
+      finish(user);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const google = async () => {
+    setBusy(true);
+    try {
+      await auth.signInWithGoogle();
+      // On redirect, the onAuthStateChange listener hydrates the session;
+      // if tokens were returned inline we navigate now.
+      finish(auth.get());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Google sign-in failed.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -102,6 +125,21 @@ function AuthPage() {
               <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
             </button>
           </form>
+
+          <div className="mt-8 flex items-center gap-4">
+            <span className="h-px flex-1 bg-saaj-line" />
+            <span className="text-[0.625rem] tracking-[0.28em] text-muted-foreground">OR</span>
+            <span className="h-px flex-1 bg-saaj-line" />
+          </div>
+
+          <button
+            type="button"
+            onClick={google}
+            disabled={busy}
+            className="mt-8 flex w-full items-center justify-center gap-3 border border-saaj-line py-4 text-[0.625rem] tracking-[0.28em] transition-colors hover:border-foreground disabled:opacity-40"
+          >
+            CONTINUE WITH GOOGLE
+          </button>
 
           <button
             type="button"

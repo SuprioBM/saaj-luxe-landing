@@ -80,4 +80,23 @@ Living document. Update at the end of every work session.
 - Authored `supabase/migrations/0001_foundation.sql` (complete schema).
 - Created this tracker.
 - **Blocked on:** user connecting their Supabase project.
-- **Next session starts at:** apply `0001_foundation.sql`, then seed the catalog, then rewire `src/lib/auth.ts` to Supabase Auth.
+
+### 2026-08-01 — Session 2
+- Enabled Lovable Cloud; applied foundation schema to live DB.
+- Hardened migration for security linter (search_path pinning, private `security` schema wrappers for `is_staff`/`has_role`, revoked EXECUTE on `handle_new_user`).
+- Configured Google social auth (`configure_social_auth`); installed `@lovable.dev/cloud-auth-js`.
+- Rewrote `src/lib/auth.ts` over Supabase Auth (`useAuth` via `useSyncExternalStore` + `onAuthStateChange`, loads `profiles`/`user_roles`).
+- Updated `/auth` (Google button + email/password error handling), `AccountShell`, `AdminShell`, `account.profile`.
+- Created `src/routes/_authenticated/route.tsx` gate (`ssr:false`, `beforeLoad getUser()`); moved all `account.*`/`admin.*` under it; fixed cross-imports.
+- Wired `onAuthStateChange` in `__root.tsx` (identity transitions → router + query invalidation).
+- Verified: typecheck clean; all routes 200; unauth `/account` → `/auth`; Google button renders.
+- **Stopped:** workspace credits exhausted (0.00 remaining).
+
+### Next session — resume at
+1. Create public Storage bucket `product-images`; upload `src/assets/{p1..p9,cat-*}.jpg` via `supabase--storage_upload` → collect URLs.
+2. Seed migration: categories + products + product_images + product_variants with those URLs.
+3. `src/lib/products.functions.ts`: public catalog read (filter/sort/paginate) + by-slug; wire shop/product/category/home.
+4. Cart → `carts`/`cart_items` server fns (guest cart merges on login).
+5. Checkout → `createOrder` server fn (orders + order_items + stock decrement); account orders from DB.
+6. Wishlist → `wishlists` server fns.
+7. Stripe Checkout session + webhook (needs user's Stripe keys).

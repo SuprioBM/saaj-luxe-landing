@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer className="border-t border-saaj-line px-5 pb-10 pt-16 md:px-8">
       <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
         <div className="col-span-2 md:col-span-1">
-          <span className="font-display text-xl tracking-[0.42em]">SAAJ</span>
+          <span className="font-display text-xl tracking-[0.42em] text-saaj-champagne">SAAJ</span>
           <p className="mt-5 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
             Shirts and sterling silver for people who dress with intent. Small runs, deep black,
             made for the few.

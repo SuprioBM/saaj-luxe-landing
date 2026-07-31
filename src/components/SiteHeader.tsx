@@ -51,7 +51,7 @@ export function SiteHeader() {
             >
               <Menu className="h-5 w-5" strokeWidth={1.25} />
             </button>
-            <Link to="/" className="font-display text-2xl tracking-[0.42em] md:text-3xl">
+            <Link to="/" className="font-display text-2xl tracking-[0.42em] md:text-3xl text-saaj-champagne">
               SAAJ
             </Link>
           </div>
@@ -176,7 +176,7 @@ export function SiteHeader() {
             <Link
               to="/"
               onClick={() => setMenuOpen(false)}
-              className="font-display text-2xl tracking-[0.42em]"
+              className="font-display text-2xl tracking-[0.42em] text-saaj-champagne"
             >
               SAAJ
             </Link>

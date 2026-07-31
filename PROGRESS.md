@@ -29,16 +29,17 @@ Living document. Update at the end of every work session.
 ## Phase 1 — Foundation (current)
 | Item | Status | Notes |
 | --- | --- | --- |
-| Full schema migration authored | **DONE** | `docs/schema.sql` — 18 tables, enums, FKs, indexes, RLS, grants, triggers. Applied verbatim through the migration tool once connected. |
-| Migration applied to database | **BLOCKED** | Waiting on Phase 0. |
-| Seed catalog from `src/data/catalog.ts` | TODO | Literal INSERTs in a seed migration. |
-| Auth pages wired to Supabase (email/password) | TODO | Replaces demo logic in `src/lib/auth.ts`. |
-| Google OAuth via Lovable broker | TODO | `lovable.auth.signInWithOAuth("google")` + `configure_social_auth`. |
-| `_authenticated` route gate | TODO | Move `/account/*` under it. |
-| Admin role gate (`_authenticated/_admin`) | TODO | Move `/admin/*` under it. |
+| Full schema migration authored | **DONE** | `docs/schema.sql` — 18 tables, enums, FKs, indexes, RLS, grants, triggers. Applied via migration tool. |
+| Migration applied to database | **DONE** | Foundation schema live (profiles, roles, products, variants, carts, orders, payments, reviews, coupons, audit, rate_limits). |
+| Auth pages wired to Supabase (email/password) | **DONE** | `src/lib/auth.ts` rewritten over `supabase.auth`; `useAuth()` via `useSyncExternalStore` + `onAuthStateChange`; loads `profiles` + `user_roles` into session. |
+| Google OAuth via Lovable broker | **DONE** | `lovable.auth.signInWithOAuth("google")` in `/auth`; `configure_social_auth` run. |
+| `_authenticated` route gate | **DONE** | `src/routes/_authenticated/route.tsx` (`ssr: false`, `beforeLoad` `getUser()` → redirect `/auth`). All `account.*` + `admin.*` moved under it. Cross-imports fixed. Verified: unauth `/account` → `/auth`. |
+| `onAuthStateChange` wired in `__root.tsx` | **DONE** | Filters to SIGNED_IN/SIGNED_OUT/USER_UPDATED; invalidates router + (non-signout) queries. |
+| Seed catalog from `src/data/catalog.ts` | TODO | Upload `src/assets/*.jpg` → public Storage bucket, then seed categories/products/product_images/variants with real URLs. |
+| Product read/search/filter server fns | TODO | `src/lib/products.functions.ts` (public publishable client). Wire shop/product/category/home. |
 | Cart moved off localStorage → `carts`/`cart_items` | TODO | Server fns; guest cart merges on login. |
 | Wishlist moved off localStorage → `wishlists` | TODO | |
-| Orders moved off localStorage → `orders` | TODO | |
+| Orders moved off localStorage → `orders` | TODO | Checkout `createOrder` fn; account reads from DB. |
 
 ## Phase 2 — Commerce
 | Item | Status |
@@ -79,4 +80,23 @@ Living document. Update at the end of every work session.
 - Authored `supabase/migrations/0001_foundation.sql` (complete schema).
 - Created this tracker.
 - **Blocked on:** user connecting their Supabase project.
-- **Next session starts at:** apply `0001_foundation.sql`, then seed the catalog, then rewire `src/lib/auth.ts` to Supabase Auth.
+
+### 2026-08-01 — Session 2
+- Enabled Lovable Cloud; applied foundation schema to live DB.
+- Hardened migration for security linter (search_path pinning, private `security` schema wrappers for `is_staff`/`has_role`, revoked EXECUTE on `handle_new_user`).
+- Configured Google social auth (`configure_social_auth`); installed `@lovable.dev/cloud-auth-js`.
+- Rewrote `src/lib/auth.ts` over Supabase Auth (`useAuth` via `useSyncExternalStore` + `onAuthStateChange`, loads `profiles`/`user_roles`).
+- Updated `/auth` (Google button + email/password error handling), `AccountShell`, `AdminShell`, `account.profile`.
+- Created `src/routes/_authenticated/route.tsx` gate (`ssr:false`, `beforeLoad getUser()`); moved all `account.*`/`admin.*` under it; fixed cross-imports.
+- Wired `onAuthStateChange` in `__root.tsx` (identity transitions → router + query invalidation).
+- Verified: typecheck clean; all routes 200; unauth `/account` → `/auth`; Google button renders.
+- **Stopped:** workspace credits exhausted (0.00 remaining).
+
+### Next session — resume at
+1. Create public Storage bucket `product-images`; upload `src/assets/{p1..p9,cat-*}.jpg` via `supabase--storage_upload` → collect URLs.
+2. Seed migration: categories + products + product_images + product_variants with those URLs.
+3. `src/lib/products.functions.ts`: public catalog read (filter/sort/paginate) + by-slug; wire shop/product/category/home.
+4. Cart → `carts`/`cart_items` server fns (guest cart merges on login).
+5. Checkout → `createOrder` server fn (orders + order_items + stock decrement); account orders from DB.
+6. Wishlist → `wishlists` server fns.
+7. Stripe Checkout session + webhook (needs user's Stripe keys).

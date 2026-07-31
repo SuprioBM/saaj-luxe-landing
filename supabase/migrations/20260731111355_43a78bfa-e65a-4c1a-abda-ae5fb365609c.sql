@@ -1,0 +1,1 @@
+grant all on public.rate_limits to service_role;

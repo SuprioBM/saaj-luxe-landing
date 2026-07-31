@@ -29,16 +29,17 @@ Living document. Update at the end of every work session.
 ## Phase 1 — Foundation (current)
 | Item | Status | Notes |
 | --- | --- | --- |
-| Full schema migration authored | **DONE** | `docs/schema.sql` — 18 tables, enums, FKs, indexes, RLS, grants, triggers. Applied verbatim through the migration tool once connected. |
-| Migration applied to database | **BLOCKED** | Waiting on Phase 0. |
-| Seed catalog from `src/data/catalog.ts` | TODO | Literal INSERTs in a seed migration. |
-| Auth pages wired to Supabase (email/password) | TODO | Replaces demo logic in `src/lib/auth.ts`. |
-| Google OAuth via Lovable broker | TODO | `lovable.auth.signInWithOAuth("google")` + `configure_social_auth`. |
-| `_authenticated` route gate | TODO | Move `/account/*` under it. |
-| Admin role gate (`_authenticated/_admin`) | TODO | Move `/admin/*` under it. |
+| Full schema migration authored | **DONE** | `docs/schema.sql` — 18 tables, enums, FKs, indexes, RLS, grants, triggers. Applied via migration tool. |
+| Migration applied to database | **DONE** | Foundation schema live (profiles, roles, products, variants, carts, orders, payments, reviews, coupons, audit, rate_limits). |
+| Auth pages wired to Supabase (email/password) | **DONE** | `src/lib/auth.ts` rewritten over `supabase.auth`; `useAuth()` via `useSyncExternalStore` + `onAuthStateChange`; loads `profiles` + `user_roles` into session. |
+| Google OAuth via Lovable broker | **DONE** | `lovable.auth.signInWithOAuth("google")` in `/auth`; `configure_social_auth` run. |
+| `_authenticated` route gate | **DONE** | `src/routes/_authenticated/route.tsx` (`ssr: false`, `beforeLoad` `getUser()` → redirect `/auth`). All `account.*` + `admin.*` moved under it. Cross-imports fixed. Verified: unauth `/account` → `/auth`. |
+| `onAuthStateChange` wired in `__root.tsx` | **DONE** | Filters to SIGNED_IN/SIGNED_OUT/USER_UPDATED; invalidates router + (non-signout) queries. |
+| Seed catalog from `src/data/catalog.ts` | TODO | Upload `src/assets/*.jpg` → public Storage bucket, then seed categories/products/product_images/variants with real URLs. |
+| Product read/search/filter server fns | TODO | `src/lib/products.functions.ts` (public publishable client). Wire shop/product/category/home. |
 | Cart moved off localStorage → `carts`/`cart_items` | TODO | Server fns; guest cart merges on login. |
 | Wishlist moved off localStorage → `wishlists` | TODO | |
-| Orders moved off localStorage → `orders` | TODO | |
+| Orders moved off localStorage → `orders` | TODO | Checkout `createOrder` fn; account reads from DB. |
 
 ## Phase 2 — Commerce
 | Item | Status |

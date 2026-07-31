@@ -29,7 +29,7 @@ Living document. Update at the end of every work session.
 ## Phase 1 — Foundation (current)
 | Item | Status | Notes |
 | --- | --- | --- |
-| Full schema migration authored | **DONE** | `supabase/migrations/0001_foundation.sql` — 18 tables, enums, FKs, indexes, RLS, grants, triggers. |
+| Full schema migration authored | **DONE** | `docs/schema.sql` — 18 tables, enums, FKs, indexes, RLS, grants, triggers. Applied verbatim through the migration tool once connected. |
 | Migration applied to database | **BLOCKED** | Waiting on Phase 0. |
 | Seed catalog from `src/data/catalog.ts` | TODO | Literal INSERTs in a seed migration. |
 | Auth pages wired to Supabase (email/password) | TODO | Replaces demo logic in `src/lib/auth.ts`. |

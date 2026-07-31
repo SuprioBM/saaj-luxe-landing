@@ -100,3 +100,10 @@ Living document. Update at the end of every work session.
 5. Checkout → `createOrder` server fn (orders + order_items + stock decrement); account orders from DB.
 6. Wishlist → `wishlists` server fns.
 7. Stripe Checkout session + webhook (needs user's Stripe keys).
+
+## Session — catalog goes live
+- [x] Product imagery published at stable `/images/*` URLs (public bucket creation is blocked on this project, so assets are served from the app origin).
+- [x] Seed migration applied: 4 categories, 9 products, gallery images, per-size stock.
+- [x] `src/lib/catalog-live.ts` — live reads for products/categories with editorial extras merged by slug.
+- [x] Home, Shop, Category, Product page and header search now read from the database.
+- Next: admin product CRUD + inventory writes against the DB, cart/wishlist/orders migration off localStorage, Stripe checkout.

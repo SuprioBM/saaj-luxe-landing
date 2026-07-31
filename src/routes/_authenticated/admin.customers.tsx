@@ -8,7 +8,7 @@ import { useAdminCustomers } from "@/lib/queries";
 const TITLE = "Customers — SAAJ Atelier Desk";
 const DESCRIPTION = "The SAAJ client list with order counts and lifetime spend.";
 
-export const Route = createFileRoute("/admin/customers")({
+export const Route = createFileRoute("/_authenticated/admin/customers")({
   head: () => ({
     meta: [
       { title: TITLE },

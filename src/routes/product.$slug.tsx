@@ -12,7 +12,8 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { StarRating } from "@/components/StarRating";
 import { StockBadge } from "@/components/StockBadge";
 import { WishlistButton } from "@/components/WishlistButton";
-import { PRODUCTS, avgRating, findProduct, inr, stockForSize, type Review } from "@/data/catalog";
+import { avgRating, findProduct, inr, stockForSize, type Review } from "@/data/catalog";
+import { useProduct, useProducts } from "@/lib/catalog-live";
 import { cart } from "@/lib/cart";
 import { recentlyViewed } from "@/lib/recently-viewed";
 
@@ -43,7 +44,10 @@ export const Route = createFileRoute("/product/$slug")({
 });
 
 function ProductPage() {
-  const { product } = Route.useLoaderData();
+  const { product: loaded } = Route.useLoaderData();
+  const { product: live } = useProduct(loaded.slug);
+  const product = live ?? loaded;
+  const { data: products = [] } = useProducts();
   const gallery: string[] = product.gallery?.length ? product.gallery : [product.img];
   const [shot, setShot] = useState(0);
   const [size, setSize] = useState<string | null>(null);
@@ -61,10 +65,10 @@ function ProductPage() {
   }, [product.slug]);
 
   const available = stockForSize(product, size);
-  const related = PRODUCTS.filter(
+  const related = products.filter(
     (p) => p.slug !== product.slug && p.category === product.category,
   )
-    .concat(PRODUCTS.filter((p) => p.slug !== product.slug && p.category !== product.category))
+    .concat(products.filter((p) => p.slug !== product.slug && p.category !== product.category))
     .slice(0, 4);
 
   return (

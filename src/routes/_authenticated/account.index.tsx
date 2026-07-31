@@ -10,7 +10,7 @@ import { useWishlist } from "@/lib/wishlist";
 const TITLE = "Your Account — SAAJ";
 const DESCRIPTION = "Your SAAJ orders, saved pieces and profile in one place.";
 
-export const Route = createFileRoute("/account/")({
+export const Route = createFileRoute("/_authenticated/account/")({
   head: () => ({
     meta: [
       { title: TITLE },

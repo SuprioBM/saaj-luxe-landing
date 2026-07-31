@@ -4,12 +4,12 @@ import { toast } from "sonner";
 
 import { AccountShell } from "@/components/AccountShell";
 import { auth, useAuth } from "@/lib/auth";
-import { SignedOut } from "@/routes/account.index";
+import { SignedOut } from "@/routes/_authenticated/account.index";
 
 const TITLE = "Profile — SAAJ";
 const DESCRIPTION = "Manage your SAAJ profile details and contact information.";
 
-export const Route = createFileRoute("/account/profile")({
+export const Route = createFileRoute("/_authenticated/account/profile")({
   head: () => ({
     meta: [
       { title: TITLE },

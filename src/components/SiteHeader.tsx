@@ -2,7 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { CATEGORIES, PRODUCTS, inr } from "@/data/catalog";
+import { inr } from "@/data/catalog";
+import { useCategories, useProducts } from "@/lib/catalog-live";
 import { useCartCount } from "@/lib/cart";
 
 export function SiteHeader() {
@@ -30,10 +31,10 @@ export function SiteHeader() {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return PRODUCTS.filter(
+    return products.filter(
       (p) => p.name.toLowerCase().includes(q) || p.category.includes(q),
     ).slice(0, 6);
-  }, [query]);
+  }, [query, products]);
 
   return (
     <>
@@ -53,7 +54,7 @@ export function SiteHeader() {
             </Link>
           </div>
           <nav className="hidden items-center gap-10 lg:flex">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <Link
                 key={c.slug}
                 to="/category/$slug"
@@ -189,7 +190,7 @@ export function SiteHeader() {
 
           <nav className="flex flex-1 flex-col gap-1 px-6 py-8">
             <p className="eyebrow mb-6">Collections</p>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <Link
                 key={c.slug}
                 to="/category/$slug"

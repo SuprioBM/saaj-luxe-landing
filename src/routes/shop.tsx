@@ -4,7 +4,8 @@ import { ArrowRight } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { CATEGORIES, PRICE_MAX, PRODUCTS, inr, totalStock } from "@/data/catalog";
+import { inr, totalStock } from "@/data/catalog";
+import { useCategories, useProducts } from "@/lib/catalog-live";
 
 const TITLE = "Shop All — SAAJ";
 const DESCRIPTION =
@@ -40,12 +41,15 @@ const SORTS = [
 function ShopPage() {
   const { category = "all", sort = "newest", availability = "all", max = 0 } = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });
-  const cap = max > 0 ? max : PRICE_MAX;
+  const { data: allProducts = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
+  const priceMax = allProducts.length ? Math.max(...allProducts.map((p) => p.price)) : 0;
+  const cap = max > 0 ? max : priceMax;
 
   const set = (patch: Partial<Search>) =>
     navigate({ search: (prev: Search) => ({ ...prev, ...patch }) });
 
-  let items = PRODUCTS.filter((p) => (category === "all" ? true : p.category === category))
+  let items = allProducts.filter((p) => (category === "all" ? true : p.category === category))
     .filter((p) => p.price <= cap)
     .filter((p) => {
       if (availability === "in") return totalStock(p) > 0;
@@ -83,7 +87,7 @@ function ShopPage() {
             <button type="button" className={chip(category === "all")} onClick={() => set({ category: "all" })}>
               All
             </button>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c.slug}
                 type="button"
@@ -132,7 +136,7 @@ function ShopPage() {
             <input
               type="range"
               min={1000}
-              max={PRICE_MAX}
+              max={priceMax}
               step={100}
               value={cap}
               onChange={(e) => set({ max: Number(e.target.value) })}

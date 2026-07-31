@@ -6,7 +6,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { RecentlyViewedRail } from "@/components/RecentlyViewedRail";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { CATEGORIES, PHILOSOPHY_IMG, PRODUCTS } from "@/data/catalog";
+import { PHILOSOPHY_IMG } from "@/data/catalog";
+import { useCategories, useProducts } from "@/lib/catalog-live";
 
 const TITLE = "SAAJ — Shirts, Chains & Rings for the Few";
 const DESCRIPTION =
@@ -32,7 +33,9 @@ const SERVICES = [
 ];
 
 function Index() {
-  const newArrivals = [...PRODUCTS]
+  const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
+  const newArrivals = [...products]
     .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
     .slice(0, 5);
 
@@ -56,7 +59,7 @@ function Index() {
           </div>
 
           <div className="saaj-rail flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 md:px-8">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <Link
                 key={c.slug}
                 to="/category/$slug"

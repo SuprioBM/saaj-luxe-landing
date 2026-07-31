@@ -5,7 +5,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { RecentlyViewedRail } from "@/components/RecentlyViewedRail";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { findCategory, productsByCategory } from "@/data/catalog";
+import { findCategory } from "@/data/catalog";
+import { useProducts } from "@/lib/catalog-live";
 
 export const Route = createFileRoute("/category/$slug")({
   loader: ({ params }) => {
@@ -36,7 +37,8 @@ export const Route = createFileRoute("/category/$slug")({
 
 function CategoryPage() {
   const { category } = Route.useLoaderData();
-  const items = productsByCategory(category.slug);
+  const { data: products = [] } = useProducts();
+  const items = products.filter((p) => p.category === category.slug);
 
   return (
     <div className="min-h-screen bg-background text-foreground">

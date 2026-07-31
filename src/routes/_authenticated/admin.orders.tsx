@@ -10,7 +10,7 @@ import { useAdminOrders, useUpdateOrderStatus } from "@/lib/queries";
 const TITLE = "Orders — SAAJ Atelier Desk";
 const DESCRIPTION = "Review and progress every SAAJ order from confirmation to delivery.";
 
-export const Route = createFileRoute("/admin/orders")({
+export const Route = createFileRoute("/_authenticated/admin/orders")({
   head: () => ({
     meta: [
       { title: TITLE },

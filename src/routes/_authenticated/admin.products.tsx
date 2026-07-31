@@ -19,7 +19,7 @@ import {
 const TITLE = "Inventory — SAAJ Atelier Desk";
 const DESCRIPTION = "Manage SAAJ product inventory, stock levels and availability.";
 
-export const Route = createFileRoute("/admin/products")({
+export const Route = createFileRoute("/_authenticated/admin/products")({
   head: () => ({
     meta: [
       { title: TITLE },

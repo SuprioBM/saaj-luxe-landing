@@ -5,12 +5,12 @@ import { AccountShell } from "@/components/AccountShell";
 import { inr } from "@/data/catalog";
 import { useAuth } from "@/lib/auth";
 import { useMyOrders } from "@/lib/queries";
-import { SignedOut } from "@/routes/account.index";
+import { SignedOut } from "@/routes/_authenticated/account.index";
 
 const TITLE = "Order History — SAAJ";
 const DESCRIPTION = "Every SAAJ order you've placed, with status and delivery detail.";
 
-export const Route = createFileRoute("/account/orders")({
+export const Route = createFileRoute("/_authenticated/account/orders")({
   head: () => ({
     meta: [
       { title: TITLE },

@@ -8,7 +8,7 @@ import { useAdminStats } from "@/lib/queries";
 const TITLE = "Atelier Desk — SAAJ";
 const DESCRIPTION = "SAAJ internal dashboard: revenue, orders and inventory health.";
 
-export const Route = createFileRoute("/admin/")({
+export const Route = createFileRoute("/_authenticated/admin/")({
   head: () => ({
     meta: [
       { title: TITLE },

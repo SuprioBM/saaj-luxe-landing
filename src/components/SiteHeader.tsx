@@ -12,6 +12,8 @@ export function SiteHeader() {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const count = useCartCount();
+  const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
 
   useEffect(() => {
     if (searchOpen) inputRef.current?.focus();

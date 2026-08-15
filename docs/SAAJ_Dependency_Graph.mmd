@@ -1,0 +1,63 @@
+graph LR
+  subgraph LIVE["LIVE DB PATH (real)"]
+    R1["/ index.tsx"] --> C_HERO[HeroSlider]
+    R1 --> C_PC[ProductCard]
+    R1 --> C_RV[RecentlyViewedRail]
+    R2["/shop"] --> C_PC
+    R3["/category/$slug"] --> C_PC
+    R4["/product/$slug"] --> C_PC
+    R4 --> C_SIZE[SizePicker]
+    R4 --> C_QTY[QtyStepper]
+    HDR[SiteHeader] --> H_CATLIVE
+    R1 --> H_CATLIVE["useProducts / useCategories"]
+    R2 --> H_CATLIVE
+    R3 --> H_CATLIVE
+    R4 --> H_PROD["useProduct"]
+    H_CATLIVE --> LIB_CL["lib/catalog-live.ts"]
+    H_PROD --> LIB_CL
+    LIB_CL --> SB["supabase-js client"]
+    SB --> T_PROD[("products")]
+    SB --> T_PV[("product_variants")]
+    SB --> T_PI[("product_images")]
+    SB --> T_CAT[("categories")]
+  end
+
+  subgraph AUTHP["AUTH PATH (real)"]
+    R5["/auth"] --> LIB_AUTH["lib/auth.ts (auth, useAuth)"]
+    GATE["_authenticated/route.tsx"] --> LIB_AUTH
+    C_ACC[AccountShell] --> LIB_AUTH
+    C_ADM[AdminShell] --> LIB_AUTH
+    LIB_AUTH --> SB
+    SB --> T_PROF[("profiles")]
+    SB --> T_ROLE[("user_roles")]
+  end
+
+  subgraph LOCAL["LOCALSTORAGE PATH (not persisted server-side)"]
+    R6["/cart"] --> LIB_CART["lib/cart.ts"]
+    R7["/checkout"] --> LIB_CART
+    R7 --> LIB_ORD["lib/orders.ts"]
+    R8["/order/$id"] --> LIB_ORD
+    R9["/wishlist"] --> LIB_WL["lib/wishlist.ts"]
+    C_WLB[WishlistButton] --> LIB_WL
+    C_RV --> LIB_RV["lib/recently-viewed.ts"]
+    LIB_CART --> LS[("localStorage")]
+    LIB_ORD --> LS
+    LIB_WL --> LS
+    LIB_RV --> LS
+  end
+
+  subgraph DEAD["DASHBOARD/ADMIN PATH (404 -> mock fallback)"]
+    R10["/account/*"] --> C_ACC
+    R11["/admin/*"] --> C_ADM
+    R11 --> C_PF[ProductForm]
+    R10 --> H_Q["lib/queries.ts hooks"]
+    R11 --> H_Q
+    C_PF --> H_Q
+    H_Q --> LIB_API["lib/api.ts fetch /api/*"]
+    LIB_API -. "404 always" .-> FB["lib/api-fallback.ts (in-memory mock)"]
+    FB --> STATIC["data/catalog.ts PRODUCTS"]
+  end
+
+  ALL["All pages"] --> HDR
+  ALL --> FTR[SiteFooter]
+  STATIC -. "editorial specs, reviews, sizes merged in" .-> LIB_CL

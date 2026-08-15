@@ -70,8 +70,8 @@ function eyebrow(text: string): string {
 
 function ctaButton(label: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0;">
-    <tr><td style="background:${INK};padding:16px 32px;">
-      <a href="${url}" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.5px;color:#ffffff;text-decoration:none;text-transform:uppercase;">${escapeHtml(label)} &rarr;</a>
+    <tr><td style="background:${INK};">
+      <a href="${url}" style="display:block;padding:16px 32px;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.5px;color:#ffffff;text-decoration:none;text-transform:uppercase;">${escapeHtml(label)} &rarr;</a>
     </td></tr>
   </table>`;
 }

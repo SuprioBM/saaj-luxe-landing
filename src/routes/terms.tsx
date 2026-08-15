@@ -30,7 +30,7 @@ export const Route = createFileRoute("/terms")({
         {
           heading: "Pricing",
           body: [
-            "Prices are in Indian Rupees and include applicable taxes unless stated. We may correct obvious pricing errors before dispatch and will always tell you first.",
+            "Prices are in Bangladeshi Taka (৳) and include applicable taxes unless stated. We may correct obvious pricing errors before dispatch and will always tell you first.",
           ],
         },
         {

@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { AdminShell } from "@/components/AdminShell";
-import { inr } from "@/data/catalog";
-import { useAdminCustomers } from "@/lib/queries";
+import { formatBDT } from "@/data/catalog";
+import { adminListCustomers } from "@/lib/admin/customers.functions";
 
 const TITLE = "Customers — SAAJ Atelier Desk";
 const DESCRIPTION = "The SAAJ client list with order counts and lifetime spend.";
@@ -24,7 +25,10 @@ export const Route = createFileRoute("/_authenticated/admin/customers")({
 });
 
 function AdminCustomers() {
-  const { data: customers = [], isLoading } = useAdminCustomers();
+  const { data: customers = [], isLoading } = useQuery({
+    queryKey: ["admin", "customers"],
+    queryFn: () => adminListCustomers(),
+  });
   const [query, setQuery] = useState("");
 
   const rows = customers.filter(
@@ -71,7 +75,7 @@ function AdminCustomers() {
                   <td className="py-5 text-sm">{c.name}</td>
                   <td className="py-5 text-xs text-muted-foreground">{c.email}</td>
                   <td className="py-5 text-xs">{c.orders}</td>
-                  <td className="py-5 text-sm text-saaj-champagne">{inr(c.spend)}</td>
+                  <td className="py-5 text-sm text-saaj-champagne">{formatBDT(c.spend)}</td>
                 </tr>
               ))}
             </tbody>

@@ -25,13 +25,13 @@ export const Route = createFileRoute("/privacy")({
           heading: "What we collect",
           body: [
             "Name, email, phone, delivery address and order history. If you contact us, we keep that correspondence so we can pick up where we left off.",
-            "Your bag, saved pieces and recently viewed items are stored locally in your browser, not on our servers.",
+            "If you're signed in, your bag and saved pieces are stored on our servers so they follow you across devices. Recently viewed items always stay local to your browser.",
           ],
         },
         {
           heading: "Payments",
           body: [
-            "Card and UPI details are handled by our payment processor and are never stored on SAAJ systems.",
+            "Card, bKash, Nagad and Rocket details are handled by our payment gateway (SSLCommerz) and are never stored on SAAJ systems.",
           ],
         },
         {

@@ -25,7 +25,7 @@ export const Route = createFileRoute("/about")({
 const PILLARS: [string, string][] = [
   ["Small runs", "Nothing is made in volume. When a piece sells out, it stays out until it earns a rerun."],
   ["Honest material", "Solid 925 silver, real linen, garment-dyed cotton. No plating, no filler, no shortcuts."],
-  ["Finished by hand", "Every clasp, hem and face is checked by a person before it leaves Jaipur."],
+  ["Finished by hand", "Every clasp, hem and face is checked by a person before it leaves Dhaka."],
 ];
 
 function AboutPage() {
@@ -70,7 +70,7 @@ function AboutPage() {
           <div className="flex flex-col justify-center gap-6 px-5 py-16 md:px-12">
             <p className="eyebrow">The maker</p>
             <p className="max-w-md font-display text-2xl font-light leading-snug">
-              Cut and sewn in India. Silver hand-finished in Jaipur by a workshop we have worked
+              Cut and sewn in Bangladesh. Silver hand-finished in Dhaka by a workshop we have worked
               with since the first run.
             </p>
             <p className="max-w-md text-xs leading-relaxed text-muted-foreground">

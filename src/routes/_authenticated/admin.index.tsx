@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 
 import { AdminShell } from "@/components/AdminShell";
-import { inr } from "@/data/catalog";
-import { useAdminStats } from "@/lib/queries";
+import { formatBDT } from "@/data/catalog";
+import { adminDashboardStats } from "@/lib/admin/dashboard.functions";
 
 const TITLE = "Atelier Desk — SAAJ";
 const DESCRIPTION = "SAAJ internal dashboard: revenue, orders and inventory health.";
@@ -24,7 +25,10 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 });
 
 function AdminOverview() {
-  const { data, isLoading } = useAdminStats();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "stats"],
+    queryFn: () => adminDashboardStats(),
+  });
   const peak = Math.max(1, ...(data?.revenueSeries.map((r) => r.value) ?? [1]));
 
   return (
@@ -38,7 +42,7 @@ function AdminOverview() {
       ) : (
         <>
           <div className="grid gap-px bg-saaj-line sm:grid-cols-2 lg:grid-cols-4">
-            <Metric label="Revenue" value={inr(data.revenue)} />
+            <Metric label="Revenue" value={formatBDT(data.revenue)} />
             <Metric label="Orders" value={String(data.orders)} />
             <Metric label="Customers" value={String(data.customers)} />
             <Metric label="Low Stock" value={String(data.lowStock)} />
@@ -47,10 +51,10 @@ function AdminOverview() {
           <div className="mt-16 grid gap-12 lg:grid-cols-2">
             <section>
               <div className="flex items-center gap-5">
-                <h2 className="eyebrow">Revenue</h2>
+                <h2 className="eyebrow">Revenue (7 days)</h2>
                 <span className="h-px flex-1 bg-saaj-line" />
               </div>
-              {data.revenueSeries.length === 0 ? (
+              {data.revenueSeries.every((r) => r.value === 0) ? (
                 <p className="mt-8 text-xs text-muted-foreground">No revenue recorded yet.</p>
               ) : (
                 <div className="mt-10 flex h-48 items-end gap-3">
@@ -74,16 +78,20 @@ function AdminOverview() {
                 <h2 className="eyebrow">Best Sellers</h2>
                 <span className="h-px flex-1 bg-saaj-line" />
               </div>
-              <ul className="mt-8 divide-y divide-saaj-line border-y border-saaj-line">
-                {data.topProducts.map((p) => (
-                  <li key={p.slug} className="flex items-center justify-between gap-6 py-4">
-                    <span className="truncate text-sm">{p.name}</span>
-                    <span className="shrink-0 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
-                      {p.sold} SOLD · {inr(p.revenue)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {data.topProducts.length === 0 ? (
+                <p className="mt-8 text-xs text-muted-foreground">No paid orders yet.</p>
+              ) : (
+                <ul className="mt-8 divide-y divide-saaj-line border-y border-saaj-line">
+                  {data.topProducts.map((p) => (
+                    <li key={p.slug} className="flex items-center justify-between gap-6 py-4">
+                      <span className="truncate text-sm">{p.name}</span>
+                      <span className="shrink-0 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
+                        {p.sold} SOLD · {formatBDT(p.revenue)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <Link to="/admin/products" className="rule-link mt-8">
                 Manage inventory
                 <ArrowRight className="h-4 w-4" strokeWidth={1.25} />

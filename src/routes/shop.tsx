@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { inr, totalStock } from "@/data/catalog";
+import { formatBDT, totalStock } from "@/data/catalog";
 import { useCategories, useProducts } from "@/lib/catalog-live";
 
 const TITLE = "Shop All — SAAJ";
@@ -142,7 +142,7 @@ function ShopPage() {
               onChange={(e) => set({ max: Number(e.target.value) })}
               className="h-px w-56 appearance-none bg-saaj-line accent-[var(--saaj-champagne)]"
             />
-            <span className="text-[0.625rem] tracking-[0.2em] text-saaj-champagne">{inr(cap)}</span>
+            <span className="text-[0.625rem] tracking-[0.2em] text-saaj-champagne">{formatBDT(cap)}</span>
           </div>
         </div>
 

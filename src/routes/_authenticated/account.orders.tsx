@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 
 import { AccountShell } from "@/components/AccountShell";
-import { inr } from "@/data/catalog";
+import { formatBDT } from "@/data/catalog";
 import { useAuth } from "@/lib/auth";
-import { useMyOrders } from "@/lib/queries";
+import { listMyOrdersDetailed } from "@/lib/orders.functions";
 import { SignedOut } from "@/routes/_authenticated/account.index";
 
 const TITLE = "Order History — SAAJ";
@@ -25,11 +26,15 @@ export const Route = createFileRoute("/_authenticated/account/orders")({
   component: AccountOrders,
 });
 
-const STEPS = ["CONFIRMED", "PACKED", "SHIPPED", "DELIVERED"] as const;
+const STEPS = ["paid", "processing", "shipped", "delivered"] as const;
 
 function AccountOrders() {
   const user = useAuth();
-  const { data: orders = [], isLoading } = useMyOrders(user?.email);
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["orders", "mine", user?.id],
+    queryFn: () => listMyOrdersDetailed(),
+    enabled: Boolean(user),
+  });
 
   if (!user) return <SignedOut />;
 
@@ -53,26 +58,27 @@ function AccountOrders() {
         <div className="space-y-px bg-saaj-line">
           {orders.map((o) => {
             const step = STEPS.indexOf(o.status as (typeof STEPS)[number]);
+            const terminal = o.status === "cancelled" || o.status === "refunded";
             return (
               <article key={o.id} className="bg-background p-6 md:p-8">
                 <div className="flex flex-wrap items-baseline justify-between gap-4">
                   <div>
                     <p className="font-display text-2xl font-light">{o.reference}</p>
                     <p className="mt-2 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
-                      {new Date(o.placedAt).toLocaleDateString("en-IN", {
+                      {new Date(o.placedAt).toLocaleDateString("en-GB", {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
                       })}{" "}
-                      · {o.paymentMethod.toUpperCase()}
+                      · {(o.paymentStatus ?? "unpaid").toUpperCase()}
                     </p>
                   </div>
-                  <p className="text-sm">{inr(o.total)}</p>
+                  <p className="text-sm">{formatBDT(o.total)}</p>
                 </div>
 
-                {o.status === "CANCELLED" ? (
+                {terminal || o.status === "pending" ? (
                   <p className="mt-6 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
-                    CANCELLED
+                    {o.status.toUpperCase()}
                   </p>
                 ) : (
                   <div className="mt-8 flex gap-1">
@@ -86,7 +92,7 @@ function AccountOrders() {
                             i <= step ? "text-saaj-champagne" : "text-muted-foreground"
                           }`}
                         >
-                          {s}
+                          {s.toUpperCase()}
                         </p>
                       </div>
                     ))}
@@ -110,7 +116,7 @@ function AccountOrders() {
                           {it.size} · QTY {it.qty}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">{inr(it.unitPrice * it.qty)}</p>
+                      <p className="text-xs text-muted-foreground">{formatBDT(it.unitPrice * it.qty)}</p>
                     </li>
                   ))}
                 </ul>

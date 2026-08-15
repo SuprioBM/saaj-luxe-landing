@@ -4,7 +4,7 @@ import { PolicyPage } from "@/components/PolicyPage";
 
 const TITLE = "Shipping — SAAJ";
 const DESCRIPTION =
-  "SAAJ shipping timelines, complimentary delivery over ₹4,999, and worldwide dispatch details.";
+  "SAAJ shipping timelines, complimentary delivery over ৳5,000, and worldwide dispatch details.";
 
 export const Route = createFileRoute("/shipping")({
   head: () => ({
@@ -29,10 +29,10 @@ export const Route = createFileRoute("/shipping")({
           ],
         },
         {
-          heading: "India delivery",
+          heading: "Bangladesh delivery",
           body: [
-            "Metro cities: 2–4 working days. Rest of India: 4–7 working days.",
-            "Complimentary shipping on all orders over ₹4,999. Below that, a flat ₹149 applies at checkout.",
+            "Dhaka metro: 1–3 working days. Rest of Bangladesh: 3–6 working days.",
+            "Complimentary shipping on all orders over ৳5,000. Below that, a flat ৳120 applies at checkout.",
           ],
         },
         {

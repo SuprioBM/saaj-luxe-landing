@@ -381,13 +381,16 @@ export type Database = {
         Row: {
           billing_address: Json | null
           coupon_id: string | null
+          courier: string | null
           customer_email: string
           customer_name: string
           customer_phone: string | null
           discount: number
+          guest_access_token_hash: string | null
           id: string
           placed_at: string
           reference: string
+          shipment_tracking_number: string | null
           shipping: number
           shipping_address: Json
           status: Database["public"]["Enums"]["order_status"]
@@ -400,13 +403,16 @@ export type Database = {
         Insert: {
           billing_address?: Json | null
           coupon_id?: string | null
+          courier?: string | null
           customer_email: string
           customer_name: string
           customer_phone?: string | null
           discount?: number
+          guest_access_token_hash?: string | null
           id?: string
           placed_at?: string
           reference: string
+          shipment_tracking_number?: string | null
           shipping?: number
           shipping_address: Json
           status?: Database["public"]["Enums"]["order_status"]
@@ -419,13 +425,16 @@ export type Database = {
         Update: {
           billing_address?: Json | null
           coupon_id?: string | null
+          courier?: string | null
           customer_email?: string
           customer_name?: string
           customer_phone?: string | null
           discount?: number
+          guest_access_token_hash?: string | null
           id?: string
           placed_at?: string
           reference?: string
+          shipment_tracking_number?: string | null
           shipping?: number
           shipping_address?: Json
           status?: Database["public"]["Enums"]["order_status"]
@@ -451,6 +460,8 @@ export type Database = {
           created_at: string
           currency: string
           failure_reason: string | null
+          gateway_session_id: string | null
+          gateway_transaction_id: string | null
           id: string
           order_id: string
           provider: string
@@ -466,6 +477,8 @@ export type Database = {
           created_at?: string
           currency?: string
           failure_reason?: string | null
+          gateway_session_id?: string | null
+          gateway_transaction_id?: string | null
           id?: string
           order_id: string
           provider?: string
@@ -481,6 +494,8 @@ export type Database = {
           created_at?: string
           currency?: string
           failure_reason?: string | null
+          gateway_session_id?: string | null
+          gateway_transaction_id?: string | null
           id?: string
           order_id?: string
           provider?: string
@@ -820,6 +835,44 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      place_order: {
+        Args: {
+          p_billing_address: Json
+          p_coupon_code?: string | null
+          p_customer: Json
+          p_guest_token_hash?: string | null
+          p_items: Json
+          p_shipping_address: Json
+          p_user_id: string | null
+        }
+        Returns: Json
+      }
+      finalize_order_paid: {
+        Args: {
+          p_order_id: string
+          p_provider: string
+          p_raw_event?: Json | null
+          p_transaction_id: string
+        }
+        Returns: undefined
+      }
+      release_order_reservation: {
+        Args: { p_order_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      cancel_order: {
+        Args: { p_order_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      set_order_shipment: {
+        Args: {
+          p_actor_id: string
+          p_courier: string | null
+          p_order_id: string
+          p_tracking_number: string | null
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "staff" | "customer"

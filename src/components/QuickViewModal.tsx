@@ -8,8 +8,8 @@ import { SizePicker } from "@/components/SizePicker";
 import { StarRating } from "@/components/StarRating";
 import { StockBadge } from "@/components/StockBadge";
 import { WishlistButton } from "@/components/WishlistButton";
-import { avgRating, inr, stockForSize, type Product } from "@/data/catalog";
-import { cart } from "@/lib/cart";
+import { avgRating, formatBDT, stockForSize, type Product } from "@/data/catalog";
+import { useAddToCart } from "@/lib/cart";
 
 export function QuickViewModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [size, setSize] = useState<string | null>(null);
@@ -26,7 +26,12 @@ export function QuickViewModal({ product, onClose }: { product: Product; onClose
   }, [onClose]);
 
   const available = stockForSize(product, size);
-  const canAdd = Boolean(size) && available > 0;
+  // Empty until the live DB fetch resolves (placeholder data intentionally
+  // carries no real variant ids) — gates the buy button so it can't be
+  // clicked into a false "not ready" error during that brief window.
+  const variantId = size ? product.sizes.find((s) => s.size === size)?.id || undefined : undefined;
+  const canAdd = Boolean(size) && Boolean(variantId) && available > 0;
+  const addToCart = useAddToCart();
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-0 sm:p-6" role="dialog" aria-modal="true">
@@ -62,7 +67,7 @@ export function QuickViewModal({ product, onClose }: { product: Product; onClose
             </span>
           </div>
 
-          <p className="mt-4 text-sm text-saaj-champagne">{inr(product.price)}</p>
+          <p className="mt-4 text-sm text-saaj-champagne">{formatBDT(product.price)}</p>
           <p className="mt-5 text-xs leading-relaxed text-muted-foreground">{product.detail}</p>
 
           <div className="mt-7">
@@ -80,16 +85,24 @@ export function QuickViewModal({ product, onClose }: { product: Product; onClose
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              disabled={!canAdd}
+              disabled={!canAdd || addToCart.isPending}
               onClick={() => {
-                if (!size) return;
-                cart.add(product.slug, size, qty);
-                toast.success(`${product.name} — ${size} added to bag`);
-                onClose();
+                if (!size || !variantId) return;
+                addToCart.mutate(
+                  { variantId, qty },
+                  {
+                    onSuccess: () => {
+                      toast.success(`${product.name} — ${size} added to bag`);
+                      onClose();
+                    },
+                    onError: (err) =>
+                      toast.error(err instanceof Error ? err.message : "Could not add this to your bag."),
+                  },
+                );
               }}
               className="flex flex-1 items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:cursor-not-allowed disabled:border-white/10 disabled:text-muted-foreground/50 disabled:hover:text-muted-foreground/50"
             >
-              {size ? "Add to bag" : "Select a size"}
+              {!size ? "Select a size" : !variantId ? "Loading…" : "Add to bag"}
               <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
             </button>
             <WishlistButton slug={product.slug} label="Save" />

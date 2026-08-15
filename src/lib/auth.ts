@@ -1,16 +1,27 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
-import type { ApiUser, Role } from "@/lib/api";
 
 /**
  * SAAJ session store — backed by Supabase Auth.
  *
- * Mirrors the previous demo API so existing consumers (`useAuth()`,
- * `auth.login/register/logout/updateProfile`) keep working, but now every
- * call hits real Supabase Auth + the `profiles` / `user_roles` tables.
+ * `useAuth()`, `auth.login/register/logout/updateProfile` are the whole
+ * identity model; role comes from `user_roles` (never trusted from the
+ * client for authorization — every privileged server fn re-checks it).
  */
+
+export type Role = "CUSTOMER" | "ADMIN";
+
+export type ApiUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: Role;
+  createdAt: string;
+};
 
 type AuthState = { user: ApiUser | null; loading: boolean };
 
@@ -19,8 +30,6 @@ const listeners = new Set<() => void>();
 let booted = false;
 
 const emit = () => listeners.forEach((l) => l());
-
-const STAFF_ROLES: Role[] = ["ADMIN"];
 
 function roleFromRows(rows: { role: string }[] | null): Role {
   if (!rows?.length) return "CUSTOMER";
@@ -89,6 +98,20 @@ function boot() {
   });
 }
 
+/**
+ * Single source of truth for every auth redirect (email confirm, password
+ * reset, Google OAuth). Set VITE_SITE_URL once in .env for a stable value
+ * across dev/staging/prod; unset, it falls back to the current browser
+ * origin so plain localhost dev still works with zero configuration.
+ */
+const siteUrl = (): string => {
+  const configured = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "");
+  if (configured) return configured;
+  return typeof window !== "undefined" ? window.location.origin : "";
+};
+
+const emailRedirectTo = () => (typeof window !== "undefined" ? `${siteUrl()}/auth` : undefined);
+
 export const auth = {
   subscribe(l: () => void) {
     boot();
@@ -117,7 +140,7 @@ export const auth = {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { name }, emailRedirectTo: emailRedirectTo() },
     });
     if (error) throw error;
     // Email confirmation may be required; if no session returns, surface that.
@@ -128,14 +151,40 @@ export const auth = {
     return state.user;
   },
 
-  /** Google OAuth via the Lovable broker (iframe-safe in the preview). */
-  async signInWithGoogle(): Promise<void> {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+  async resendVerification(email: string): Promise<void> {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: emailRedirectTo() },
     });
-    if (result.error) throw result.error;
-    // `redirected === true` means the browser navigated away to Google; the
-    // onAuthStateChange listener will hydrate the session on return.
+    if (error) throw error;
+  },
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: typeof window !== "undefined" ? `${siteUrl()}/reset-password` : undefined,
+    });
+    if (error) throw error;
+  },
+
+  async updatePassword(newPassword: string): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  },
+
+  /**
+   * Google OAuth directly through Supabase Auth (the Google Cloud OAuth
+   * client is configured against this project's own Supabase callback, not
+   * a third-party broker). `signInWithOAuth` redirects the browser itself
+   * on success — this call does not return; the session is picked up by
+   * `onAuthStateChange` after Google/Supabase redirect back to `siteUrl()`.
+   */
+  async signInWithGoogle(): Promise<void> {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: siteUrl() },
+    });
+    if (error) throw error;
   },
 
   async updateProfile(patch: { name?: string; phone?: string }): Promise<ApiUser | null> {
@@ -174,4 +223,20 @@ export function useAuthLoading(): boolean {
     auth.loading,
     () => false,
   );
+}
+
+/**
+ * Sign-out hygiene: stop in-flight queries, drop every cached response (so a
+ * signed-out browser can never flash another account's admin/account data),
+ * then send the visitor somewhere that doesn't require auth.
+ */
+export function useSignOut() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  return async () => {
+    await qc.cancelQueries();
+    await auth.logout();
+    qc.clear();
+    await navigate({ to: "/auth", replace: true });
+  };
 }

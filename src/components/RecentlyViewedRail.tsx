@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
-import { findProduct, inr } from "@/data/catalog";
+import { formatBDT } from "@/data/catalog";
+import { useProducts } from "@/lib/catalog-live";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 
 export function RecentlyViewedRail({
@@ -11,9 +12,11 @@ export function RecentlyViewedRail({
   title?: string;
 }) {
   const slugs = useRecentlyViewed();
+  const { data: products = [] } = useProducts();
+  const bySlug = new Map(products.map((p) => [p.slug, p]));
   const items = slugs
     .filter((s) => s !== exclude)
-    .map(findProduct)
+    .map((s) => bySlug.get(s))
     .filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   if (items.length === 0) return null;
@@ -43,7 +46,7 @@ export function RecentlyViewedRail({
             </div>
             <div className="p-3">
               <h3 className="text-[0.6875rem] leading-snug">{p.name}</h3>
-              <p className="mt-1.5 text-[0.6875rem] text-muted-foreground">{inr(p.price)}</p>
+              <p className="mt-1.5 text-[0.6875rem] text-muted-foreground">{formatBDT(p.price)}</p>
             </div>
           </Link>
         ))}

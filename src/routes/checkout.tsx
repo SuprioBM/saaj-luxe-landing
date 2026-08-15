@@ -1,16 +1,21 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Check } from "lucide-react";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { findProduct, inr } from "@/data/catalog";
-import { cart, useCart } from "@/lib/cart";
-import { ordersStore, type OrderCustomer } from "@/lib/orders";
+import { formatBDT } from "@/data/catalog";
+import { useAuth } from "@/lib/auth";
+import { useCart, getGuestCartForCheckout } from "@/lib/cart";
+import { initiateCheckout } from "@/lib/checkout.functions";
+import { previewCoupon } from "@/lib/coupons.functions";
+import { listAddresses } from "@/lib/addresses.functions";
+import { estimateShipping, SHIPPING_THRESHOLD_BDT } from "@/lib/pricing";
 
 const TITLE = "Checkout — SAAJ";
-const DESCRIPTION = "Complete your SAAJ order: delivery details, payment method and review.";
+const DESCRIPTION = "Complete your SAAJ order: delivery details, coupon and review.";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -25,22 +30,26 @@ export const Route = createFileRoute("/checkout")({
   component: CheckoutPage,
 });
 
-const STEPS = ["Details", "Payment", "Review"] as const;
+const STEPS = ["Details", "Coupon", "Review"] as const;
 
-const FIELDS: { key: keyof OrderCustomer; label: string; type?: string; half?: boolean }[] = [
+type FormState = {
+  name: string;
+  email: string;
+  phone: string;
+  line1: string;
+  city: string;
+  state: string;
+  pincode: string;
+};
+
+const FIELDS: { key: keyof FormState; label: string; type?: string; half?: boolean }[] = [
   { key: "name", label: "Full name" },
   { key: "email", label: "Email", type: "email" },
   { key: "phone", label: "Phone", type: "tel", half: true },
-  { key: "pincode", label: "PIN code", half: true },
-  { key: "address", label: "Address" },
+  { key: "pincode", label: "Post code", half: true },
+  { key: "line1", label: "Address" },
   { key: "city", label: "City", half: true },
-  { key: "state", label: "State", half: true },
-];
-
-const METHODS: { id: OrderCustomer["method"]; label: string; note: string }[] = [
-  { id: "card", label: "Card", note: "Visa, Mastercard, Amex — encrypted at checkout" },
-  { id: "upi", label: "UPI", note: "Pay from any UPI app on delivery of the payment request" },
-  { id: "cod", label: "Cash on delivery", note: "Available on orders under ₹10,000" },
+  { key: "state", label: "District", half: true },
 ];
 
 function Field({
@@ -68,47 +77,107 @@ function Field({
 }
 
 function CheckoutPage() {
-  const lines = useCart();
-  const navigate = useNavigate();
+  const user = useAuth();
+  const { lines, isLoading: cartLoading } = useCart();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<OrderCustomer>({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
+  const [placing, setPlacing] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponResult, setCouponResult] = useState<{ valid: boolean; discount: number; message: string } | null>(
+    null,
+  );
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
+  const [form, setForm] = useState<FormState>({
+    name: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: user?.phone ?? "",
+    line1: "",
     city: "",
     state: "",
     pincode: "",
-    method: "card",
   });
 
-  const rows = lines
-    .map((line) => ({ line, product: findProduct(line.slug) }))
-    .filter((r): r is { line: (typeof lines)[number]; product: NonNullable<ReturnType<typeof findProduct>> } =>
-      Boolean(r.product),
-    );
+  useEffect(() => {
+    if (user) {
+      setForm((f) => ({ ...f, name: f.name || user.name, email: f.email || user.email, phone: f.phone || user.phone || "" }));
+    }
+  }, [user]);
 
-  const subtotal = rows.reduce((s, r) => s + r.product.price * r.line.qty, 0);
-  const shipping = subtotal === 0 || subtotal >= 4999 ? 0 : 149;
-  const total = subtotal + shipping;
+  const addressesQuery = useQuery({
+    queryKey: ["addresses", user?.id],
+    queryFn: () => listAddresses(),
+    enabled: Boolean(user),
+  });
 
-  const set = (key: keyof OrderCustomer, value: string) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
+  const discount = couponResult?.valid ? couponResult.discount : 0;
+  const afterDiscount = Math.max(0, subtotal - discount);
+  const shipping = estimateShipping(afterDiscount);
+  const total = afterDiscount + shipping;
+
+  const set = (key: keyof FormState, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
   const detailsValid =
     form.name.trim().length > 1 &&
     /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim()) &&
-    form.phone.trim().length >= 8 &&
-    form.address.trim().length > 4 &&
+    form.phone.trim().length >= 7 &&
+    form.line1.trim().length > 4 &&
     form.city.trim().length > 1 &&
     form.state.trim().length > 1 &&
-    /^\d{4,8}$/.test(form.pincode.trim());
+    form.pincode.trim().length >= 3;
 
-  const placeOrder = () => {
-    const order = ordersStore.place({ lines, subtotal, shipping, total, customer: form });
-    cart.clear();
-    toast.success("Order placed", { description: order.id });
-    navigate({ to: "/order/$id", params: { id: order.id } });
+  const applyAddress = (a: { name: string; phone: string; line1: string; city: string; state: string; pincode: string }) => {
+    setForm((f) => ({ ...f, name: a.name, phone: a.phone, line1: a.line1, city: a.city, state: a.state, pincode: a.pincode }));
+  };
+
+  const checkCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponResult(null);
+      return;
+    }
+    setCheckingCoupon(true);
+    try {
+      const result = await previewCoupon({
+        data: { code: couponCode.trim(), guestItems: user ? undefined : getGuestCartForCheckout() },
+      });
+      setCouponResult(result);
+      if (!result.valid) toast.error(result.message);
+      else toast.success(result.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not check that coupon.");
+    } finally {
+      setCheckingCoupon(false);
+    }
+  };
+
+  const placeOrder = async () => {
+    setPlacing(true);
+    try {
+      const result = await initiateCheckout({
+        data: {
+          customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() },
+          shippingAddress: {
+            line1: form.line1.trim(),
+            city: form.city.trim(),
+            state: form.state.trim(),
+            pincode: form.pincode.trim(),
+            country: "BD",
+          },
+          couponCode: couponResult?.valid ? couponCode.trim() : undefined,
+          guestItems: user ? undefined : getGuestCartForCheckout(),
+        },
+      });
+      // Fallback only — the guest access token normally reaches the order
+      // page via the gateway's redirect URL itself (embedded at session
+      // init, preserved through the SSLCommerz round trip). This covers the
+      // rare case that query string is dropped somewhere along the way.
+      if (typeof window !== "undefined" && result.guestToken) {
+        window.sessionStorage.setItem(`saaj.guest_token.${result.reference}`, result.guestToken);
+      }
+      window.location.href = result.gatewayUrl;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "We couldn't place your order. Please try again.");
+      setPlacing(false);
+    }
   };
 
   return (
@@ -123,7 +192,9 @@ function CheckoutPage() {
           </Link>
         </div>
 
-        {rows.length === 0 ? (
+        {cartLoading ? (
+          <div className="mt-16 saaj-skeleton h-40" />
+        ) : lines.length === 0 ? (
           <div className="mt-16 flex flex-col items-start">
             <p className="font-display text-3xl font-light">Nothing to check out.</p>
             <Link to="/shop" className="rule-link mt-8">
@@ -155,51 +226,63 @@ function CheckoutPage() {
 
               <div className="mt-10 border-t border-saaj-line pt-10">
                 {step === 0 && (
-                  <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-                    {FIELDS.map((f) => (
-                      <div key={f.key} className={f.half ? "sm:col-span-1" : "sm:col-span-2"}>
-                        <Field
-                          label={f.label}
-                          type={f.type}
-                          value={form[f.key] as string}
-                          onChange={(v) => set(f.key, v)}
-                        />
+                  <div>
+                    {user && addressesQuery.data && addressesQuery.data.length > 0 ? (
+                      <div className="mb-8 flex flex-wrap gap-3">
+                        {addressesQuery.data.map((a) => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onClick={() => applyAddress(a)}
+                            className="border border-saaj-line px-4 py-2 text-[0.625rem] tracking-[0.2em] text-muted-foreground transition-colors hover:border-saaj-champagne hover:text-saaj-champagne"
+                          >
+                            {a.label.toUpperCase()} — {a.city}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    ) : null}
+                    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+                      {FIELDS.map((f) => (
+                        <div key={f.key} className={f.half ? "sm:col-span-1" : "sm:col-span-2"}>
+                          <Field
+                            label={f.label}
+                            type={f.type}
+                            value={form[f.key]}
+                            onChange={(v) => set(f.key, v)}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {step === 1 && (
-                  <div className="flex flex-col gap-px bg-saaj-line">
-                    {METHODS.map((m) => {
-                      const active = form.method === m.id;
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => set("method", m.id)}
-                          className={`flex items-start gap-4 bg-background p-5 text-left transition-colors ${
-                            active ? "text-saaj-champagne" : "hover:text-saaj-champagne"
-                          }`}
-                        >
-                          <span
-                            className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border ${
-                              active ? "border-saaj-champagne" : "border-saaj-line"
-                            }`}
-                          >
-                            {active && <Check className="h-3 w-3" strokeWidth={1.5} />}
-                          </span>
-                          <span>
-                            <span className="block text-xs uppercase tracking-[0.22em]">
-                              {m.label}
-                            </span>
-                            <span className="mt-2 block text-[0.6875rem] leading-relaxed text-muted-foreground">
-                              {m.note}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
+                  <div className="max-w-md">
+                    <p className="eyebrow mb-4">Have a coupon?</p>
+                    <div className="flex items-end gap-4">
+                      <div className="flex-1">
+                        <Field label="Coupon code" value={couponCode} onChange={setCouponCode} />
+                      </div>
+                      <button
+                        type="button"
+                        disabled={checkingCoupon}
+                        onClick={() => void checkCoupon()}
+                        className="mb-1 border border-saaj-line px-6 py-3 text-[0.625rem] tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
+                      >
+                        {checkingCoupon ? "CHECKING" : "APPLY"}
+                      </button>
+                    </div>
+                    {couponResult ? (
+                      <p className={`mt-4 text-xs ${couponResult.valid ? "text-saaj-champagne" : "text-destructive"}`}>
+                        {couponResult.message}
+                      </p>
+                    ) : (
+                      <p className="mt-4 text-xs text-muted-foreground">Optional — leave blank to skip.</p>
+                    )}
+                    <p className="mt-6 text-xs text-muted-foreground">
+                      Payment method (card, bKash, Nagad, Rocket or bank transfer) is chosen on the next,
+                      secure SSLCommerz screen.
+                    </p>
                   </div>
                 )}
 
@@ -210,31 +293,25 @@ function CheckoutPage() {
                       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
                         {form.name}
                         <br />
-                        {form.address}, {form.city}, {form.state} {form.pincode}
+                        {form.line1}, {form.city}, {form.state} {form.pincode}
                         <br />
                         {form.phone} — {form.email}
                       </p>
                     </div>
-                    <div>
-                      <h2 className="eyebrow">Payment</h2>
-                      <p className="mt-4 text-xs text-muted-foreground">
-                        {METHODS.find((m) => m.id === form.method)?.label}
-                      </p>
-                    </div>
                     <ul className="flex flex-col gap-px bg-saaj-line">
-                      {rows.map(({ line, product }) => (
+                      {lines.map((line) => (
                         <li
-                          key={`${line.slug}-${line.size}`}
+                          key={line.variantId}
                           className="flex items-center justify-between gap-4 bg-background py-4"
                         >
                           <span className="text-xs">
-                            {product.name}
+                            {line.name}
                             <span className="ml-3 text-[0.625rem] uppercase tracking-[0.22em] text-muted-foreground">
                               {line.size} × {line.qty}
                             </span>
                           </span>
                           <span className="text-xs text-saaj-champagne">
-                            {inr(product.price * line.qty)}
+                            {formatBDT(line.unitPrice * line.qty)}
                           </span>
                         </li>
                       ))}
@@ -254,12 +331,26 @@ function CheckoutPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={step === 0 && !detailsValid}
-                  onClick={() => (step === 2 ? placeOrder() : setStep((s) => s + 1))}
+                  disabled={(step === 0 && !detailsValid) || placing}
+                  onClick={() => (step === 2 ? void placeOrder() : setStep((s) => s + 1))}
                   className="flex items-center gap-4 border border-saaj-line px-8 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-30 disabled:hover:border-saaj-line disabled:hover:text-foreground"
                 >
-                  {step === 2 ? "Place order" : "Continue"}
-                  <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+                  {placing ? (
+                    <>
+                      Redirecting to payment
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.25} />
+                    </>
+                  ) : step === 2 ? (
+                    <>
+                      Pay now
+                      <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+                    </>
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -269,20 +360,26 @@ function CheckoutPage() {
               <dl className="mt-6 flex flex-col gap-3 text-xs">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Subtotal</dt>
-                  <dd>{inr(subtotal)}</dd>
+                  <dd>{formatBDT(subtotal)}</dd>
                 </div>
+                {discount > 0 ? (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Discount</dt>
+                    <dd className="text-saaj-champagne">−{formatBDT(discount)}</dd>
+                  </div>
+                ) : null}
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Shipping</dt>
-                  <dd>{shipping === 0 ? "Complimentary" : inr(shipping)}</dd>
+                  <dd>{shipping === 0 ? "Complimentary" : formatBDT(shipping)}</dd>
                 </div>
               </dl>
               <span className="mt-6 block h-px w-full bg-saaj-line" />
               <div className="mt-6 flex items-baseline justify-between">
                 <span className="eyebrow">Total</span>
-                <span className="text-sm text-saaj-champagne">{inr(total)}</span>
+                <span className="text-sm text-saaj-champagne">{formatBDT(total)}</span>
               </div>
               <p className="mt-6 text-[0.625rem] leading-relaxed tracking-[0.14em] text-muted-foreground">
-                COMPLIMENTARY SHIPPING ON ORDERS OVER ₹4,999
+                COMPLIMENTARY SHIPPING ON ORDERS OVER {formatBDT(SHIPPING_THRESHOLD_BDT)}
               </p>
             </aside>
           </div>

@@ -1,20 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { AdminShell } from "@/components/AdminShell";
 import { ProductForm } from "@/components/ProductForm";
-import { inr } from "@/data/catalog";
-import type { ProductInput } from "@/lib/api";
+import { formatBDT } from "@/data/catalog";
 import {
-  useAdminProducts,
-  useCreateProduct,
-  useDeleteProduct,
-  useToggleProductActive,
-  useUpdateProduct,
-  useUpdateStock,
-} from "@/lib/queries";
+  adminCreateProduct,
+  adminDeleteProduct,
+  adminListProducts,
+  adminSetProductStatus,
+  adminUpdateProduct,
+  adminUpdateStock,
+} from "@/lib/admin/products.functions";
+import type { AdminProductInput } from "@/lib/schemas";
 
 const TITLE = "Inventory — SAAJ Atelier Desk";
 const DESCRIPTION = "Manage SAAJ product inventory, stock levels and availability.";
@@ -35,17 +36,18 @@ export const Route = createFileRoute("/_authenticated/admin/products")({
 });
 
 function AdminProducts() {
-  const { data: products = [], isLoading } = useAdminProducts();
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["admin", "products"],
+    queryFn: () => adminListProducts(),
+  });
+  const qc = useQueryClient();
+  const invalidate = () => void qc.invalidateQueries({ queryKey: ["admin", "products"] });
+
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
-
-  const updateStock = useUpdateStock();
-  const toggleActive = useToggleProductActive();
-  const createProduct = useCreateProduct();
-  const updateProduct = useUpdateProduct();
-  const deleteProduct = useDeleteProduct();
 
   const rows = products.filter(
     (p) =>
@@ -53,14 +55,67 @@ function AdminProducts() {
       p.sku.toLowerCase().includes(query.toLowerCase()),
   );
 
-  const handleDelete = (id: string, name: string) => {
-    if (!window.confirm(`Remove “${name}” from the atelier? This cannot be undone.`)) return;
-    deleteProduct.mutate(id, {
-      onSuccess: () => {
-        setEditing(null);
-        toast.success("Piece removed.");
-      },
-    });
+  const handleCreate = async (input: AdminProductInput) => {
+    setBusy(true);
+    try {
+      await adminCreateProduct({ data: input });
+      setCreating(false);
+      toast.success("Piece created.");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create piece.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUpdate = async (id: string, patch: AdminProductInput) => {
+    setBusy(true);
+    try {
+      await adminUpdateProduct({ data: { id, ...patch } });
+      setEditing(null);
+      toast.success("Piece updated.");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update piece.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Remove "${name}" from the atelier? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await adminDeleteProduct({ data: { id } });
+      setEditing(null);
+      toast.success("Piece removed.");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove this piece.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleToggleStatus = async (id: string, active: boolean) => {
+    try {
+      await adminSetProductStatus({ data: { id, status: active ? "draft" : "active" } });
+      toast.success(active ? "Piece hidden." : "Piece published.");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update this piece.");
+    }
+  };
+
+  const handleSaveStock = async (id: string, variants: { size: string; stock: number }[]) => {
+    try {
+      await adminUpdateStock({ data: { productId: id, variants } });
+      toast.success("Stock updated.");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update stock.");
+    }
   };
 
   return (
@@ -91,19 +146,7 @@ function AdminProducts() {
           <p className="px-5 pt-6 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
             NEW PIECE
           </p>
-          <ProductForm
-            saving={createProduct.isPending}
-            onCancel={() => setCreating(false)}
-            onSubmit={(input: ProductInput) =>
-              createProduct.mutate(input, {
-                onSuccess: () => {
-                  setCreating(false);
-                  toast.success("Piece created.");
-                },
-                onError: () => toast.error("Could not create piece."),
-              })
-            }
-          />
+          <ProductForm saving={busy} onCancel={() => setCreating(false)} onSubmit={handleCreate} />
         </div>
       ) : null}
 
@@ -130,15 +173,19 @@ function AdminProducts() {
                     }}
                     className="flex min-w-0 flex-1 items-center gap-5 text-left"
                   >
-                    <img src={p.image} alt={p.name} className="h-16 w-14 object-cover" />
+                    {p.image ? (
+                      <img src={p.image} alt={p.name} className="h-16 w-14 object-cover" />
+                    ) : (
+                      <div className="h-16 w-14 bg-saaj-panel" />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm">{p.name}</p>
                       <p className="mt-1 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
                         {p.sku} · {p.category.toUpperCase()}
-                        {p.active ? "" : " · HIDDEN"}
+                        {p.status !== "active" ? ` · ${p.status.toUpperCase()}` : ""}
                       </p>
                     </div>
-                    <p className="hidden text-sm sm:block">{inr(p.price)}</p>
+                    <p className="hidden text-sm sm:block">{formatBDT(p.price)}</p>
                     <p
                       className={`w-24 text-right text-[0.625rem] tracking-[0.22em] ${
                         total === 0
@@ -168,35 +215,17 @@ function AdminProducts() {
                 {isEditing ? (
                   <ProductForm
                     product={p}
-                    saving={updateProduct.isPending}
+                    saving={busy}
                     onCancel={() => setEditing(null)}
-                    onDelete={() => handleDelete(p.id, p.name)}
-                    onSubmit={(patch) =>
-                      updateProduct.mutate(
-                        { id: p.id, patch },
-                        {
-                          onSuccess: () => {
-                            setEditing(null);
-                            toast.success("Piece updated.");
-                          },
-                          onError: () => toast.error("Could not update piece."),
-                        },
-                      )
-                    }
+                    onDelete={() => void handleDelete(p.id, p.name)}
+                    onSubmit={(patch) => void handleUpdate(p.id, patch)}
                   />
                 ) : expanded ? (
                   <StockEditor
                     variants={p.variants}
-                    active={p.active}
-                    saving={updateStock.isPending}
-                    onToggleActive={() => {
-                      toggleActive.mutate({ id: p.id, active: !p.active });
-                      toast.success(p.active ? "Piece hidden." : "Piece published.");
-                    }}
-                    onSave={(variants) => {
-                      updateStock.mutate({ id: p.id, variants });
-                      toast.success("Stock updated.");
-                    }}
+                    active={p.status === "active"}
+                    onToggleActive={() => void handleToggleStatus(p.id, p.status === "active")}
+                    onSave={(variants) => void handleSaveStock(p.id, variants)}
                   />
                 ) : null}
               </div>
@@ -211,17 +240,16 @@ function AdminProducts() {
 function StockEditor({
   variants,
   active,
-  saving,
   onSave,
   onToggleActive,
 }: {
   variants: { size: string; stock: number }[];
   active: boolean;
-  saving: boolean;
   onSave: (v: { size: string; stock: number }[]) => void;
   onToggleActive: () => void;
 }) {
   const [draft, setDraft] = useState(variants);
+  const [saving, setSaving] = useState(false);
 
   return (
     <div className="border-t border-saaj-line px-5 py-8">
@@ -252,7 +280,10 @@ function StockEditor({
         <button
           type="button"
           disabled={saving}
-          onClick={() => onSave(draft)}
+          onClick={() => {
+            setSaving(true);
+            void Promise.resolve(onSave(draft)).finally(() => setSaving(false));
+          }}
           className="border border-foreground px-8 py-3 text-[0.625rem] tracking-[0.28em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
         >
           {saving ? "SAVING" : "SAVE STOCK"}

@@ -29,11 +29,12 @@ const field =
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const [mode, setMode] = useState<"in" | "up" | "reset">("in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
 
   const finish = (user: { role: string } | null) => {
     void navigate({ to: user?.role === "ADMIN" ? "/admin" : "/account" });
@@ -41,6 +42,24 @@ function AuthPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "reset") {
+      if (!email.trim()) {
+        toast.error("Enter your email address.");
+        return;
+      }
+      setBusy(true);
+      try {
+        await auth.requestPasswordReset(email.trim());
+        toast.success("Password reset email sent — check your inbox.");
+        setMode("in");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not send that email.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (!email.trim() || password.length < 6 || (mode === "up" && !name.trim())) {
       toast.error("Complete every field. Password needs 6 characters.");
       return;
@@ -54,7 +73,11 @@ function AuthPage() {
       toast.success(mode === "in" ? "Welcome back." : "Account created.");
       finish(user);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+      const message = err instanceof Error ? err.message : "Something went wrong.";
+      toast.error(message);
+      if (mode === "up" && message.toLowerCase().includes("check your email")) {
+        setAwaitingVerification(true);
+      }
     } finally {
       setBusy(false);
     }
@@ -63,35 +86,58 @@ function AuthPage() {
   const google = async () => {
     setBusy(true);
     try {
+      // The browser navigates away to Google on success — this only
+      // returns (and reaches the catch) if starting the redirect failed.
       await auth.signInWithGoogle();
-      // On redirect, the onAuthStateChange listener hydrates the session;
-      // if tokens were returned inline we navigate now.
-      finish(auth.get());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Google sign-in failed.");
-    } finally {
       setBusy(false);
     }
   };
+
+  const resend = async () => {
+    if (!email.trim()) return;
+    try {
+      await auth.resendVerification(email.trim());
+      toast.success("Verification email resent.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not resend that email.");
+    }
+  };
+
+  const heading = mode === "in" ? "Sign In" : mode === "up" ? "Create Account" : "Reset Password";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
       <main className="px-5 py-16 md:px-8 md:py-24">
         <div className="flex items-center gap-5">
-          <h1 className="eyebrow">{mode === "in" ? "Sign In" : "Create Account"}</h1>
+          <h1 className="eyebrow">{heading}</h1>
           <span className="h-px flex-1 bg-saaj-line" />
         </div>
 
         <div className="mx-auto mt-16 w-full max-w-md">
           <p className="font-display text-4xl font-light">
-            {mode === "in" ? "Welcome back." : "Join the few."}
+            {mode === "in" ? "Welcome back." : mode === "up" ? "Join the few." : "Forgotten it happens."}
           </p>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
             {mode === "in"
               ? "Track orders, revisit saved pieces and check out faster."
-              : "One account for orders, saved pieces and early access to each drop."}
+              : mode === "up"
+                ? "One account for orders, saved pieces and early access to each drop."
+                : "We'll email you a link to set a new password."}
           </p>
+
+          {awaitingVerification ? (
+            <div className="mt-8 border border-saaj-line p-5">
+              <p className="text-xs text-muted-foreground">
+                Check {email || "your inbox"} for a confirmation link before signing in.
+              </p>
+              <button type="button" onClick={() => void resend()} className="rule-link mt-4">
+                Resend verification email
+              </button>
+            </div>
+          ) : null}
 
           <form onSubmit={submit} className="mt-12 space-y-8">
             {mode === "up" ? (
@@ -109,44 +155,68 @@ function AuthPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <input
-              className={field}
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            {mode !== "reset" ? (
+              <input
+                className={field}
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            ) : null}
+            {mode === "in" ? (
+              <button
+                type="button"
+                onClick={() => setMode("reset")}
+                className="block text-[0.625rem] tracking-[0.2em] text-muted-foreground transition-colors hover:text-saaj-champagne"
+              >
+                FORGOT PASSWORD?
+              </button>
+            ) : null}
             <button
               type="submit"
               disabled={busy}
               className="flex w-full items-center justify-center gap-3 border border-foreground py-4 text-[0.625rem] tracking-[0.28em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
             >
-              {busy ? "PLEASE WAIT" : mode === "in" ? "SIGN IN" : "CREATE ACCOUNT"}
+              {busy
+                ? "PLEASE WAIT"
+                : mode === "in"
+                  ? "SIGN IN"
+                  : mode === "up"
+                    ? "CREATE ACCOUNT"
+                    : "SEND RESET LINK"}
               <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
             </button>
           </form>
 
-          <div className="mt-8 flex items-center gap-4">
-            <span className="h-px flex-1 bg-saaj-line" />
-            <span className="text-[0.625rem] tracking-[0.28em] text-muted-foreground">OR</span>
-            <span className="h-px flex-1 bg-saaj-line" />
-          </div>
+          {mode !== "reset" ? (
+            <>
+              <div className="mt-8 flex items-center gap-4">
+                <span className="h-px flex-1 bg-saaj-line" />
+                <span className="text-[0.625rem] tracking-[0.28em] text-muted-foreground">OR</span>
+                <span className="h-px flex-1 bg-saaj-line" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void google()}
+                disabled={busy}
+                className="mt-8 flex w-full items-center justify-center gap-3 border border-saaj-line py-4 text-[0.625rem] tracking-[0.28em] transition-colors hover:border-foreground disabled:opacity-40"
+              >
+                CONTINUE WITH GOOGLE
+              </button>
+            </>
+          ) : null}
 
           <button
             type="button"
-            onClick={google}
-            disabled={busy}
-            className="mt-8 flex w-full items-center justify-center gap-3 border border-saaj-line py-4 text-[0.625rem] tracking-[0.28em] transition-colors hover:border-foreground disabled:opacity-40"
-          >
-            CONTINUE WITH GOOGLE
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMode(mode === "in" ? "up" : "in")}
+            onClick={() => {
+              setAwaitingVerification(false);
+              setMode(mode === "in" ? "up" : "in");
+            }}
             className="rule-link mt-10"
           >
-            {mode === "in" ? "Create an account" : "I already have an account"}
+            {mode === "up" ? "I already have an account" : "Create an account"}
           </button>
         </div>
       </main>

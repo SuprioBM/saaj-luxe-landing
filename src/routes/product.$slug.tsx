@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -12,10 +13,12 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { StarRating } from "@/components/StarRating";
 import { StockBadge } from "@/components/StockBadge";
 import { WishlistButton } from "@/components/WishlistButton";
-import { avgRating, findProduct, inr, stockForSize, type Review } from "@/data/catalog";
+import { findProduct, formatBDT, stockForSize } from "@/data/catalog";
 import { useProduct, useProducts } from "@/lib/catalog-live";
-import { cart } from "@/lib/cart";
+import { useAddToCart } from "@/lib/cart";
+import { useAuth } from "@/lib/auth";
 import { recentlyViewed } from "@/lib/recently-viewed";
+import { createReview, listProductReviews, myReviewEligibility } from "@/lib/reviews.functions";
 
 export const Route = createFileRoute("/product/$slug")({
   loader: ({ params }) => {
@@ -56,6 +59,7 @@ function ProductPage() {
   const touchX = useRef<number | null>(null);
   const prev = () => setShot((i) => Math.max(0, i - 1));
   const next = () => setShot((i) => Math.min(gallery.length - 1, i + 1));
+  const addToCart = useAddToCart();
 
   useEffect(() => {
     setShot(0);
@@ -65,6 +69,10 @@ function ProductPage() {
   }, [product.slug]);
 
   const available = stockForSize(product, size);
+  // Empty until the live DB fetch resolves (placeholder data intentionally
+  // carries no real variant ids) — gates the buy button so it can't be
+  // clicked into a false "not ready" error during that brief window.
+  const variantId = size ? product.sizes.find((s) => s.size === size)?.id || undefined : undefined;
   const related = products.filter(
     (p) => p.slug !== product.slug && p.category === product.category,
   )
@@ -165,14 +173,9 @@ function ProductPage() {
             </Link>
             <h1 className="mt-5 font-display text-4xl font-light md:text-5xl">{product.name}</h1>
 
-            <div className="mt-4 flex items-center gap-3">
-              <StarRating value={avgRating(product)} />
-              <span className="text-[0.625rem] tracking-[0.2em] text-muted-foreground">
-                {product.reviews.length} REVIEWS
-              </span>
-            </div>
+            <ProductRatingSummary productId={product.id} />
 
-            <p className="mt-4 text-sm text-saaj-champagne">{inr(product.price)}</p>
+            <p className="mt-4 text-sm text-saaj-champagne">{formatBDT(product.price)}</p>
             <span className="mt-8 block h-px w-14 bg-saaj-line" />
             <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
               {product.detail}
@@ -193,15 +196,21 @@ function ProductPage() {
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
-                disabled={!size || available <= 0}
+                disabled={!size || !variantId || available <= 0 || addToCart.isPending}
                 onClick={() => {
-                  if (!size) return;
-                  cart.add(product.slug, size, qty);
-                  toast.success(`${product.name} — ${size} added to bag`);
+                  if (!size || !variantId) return;
+                  addToCart.mutate(
+                    { variantId, qty },
+                    {
+                      onSuccess: () => toast.success(`${product.name} — ${size} added to bag`),
+                      onError: (err) =>
+                        toast.error(err instanceof Error ? err.message : "Could not add this to your bag."),
+                    },
+                  );
                 }}
                 className="flex items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:cursor-not-allowed disabled:text-muted-foreground/50 sm:w-72"
               >
-                {size ? "Add to bag" : "Select a size"}
+                {!size ? "Select a size" : !variantId ? "Loading…" : "Add to bag"}
                 <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
               </button>
               <WishlistButton slug={product.slug} label="Save" />
@@ -225,25 +234,7 @@ function ProductPage() {
           </div>
         </section>
 
-        {product.reviews.length > 0 && (
-          <section className="border-t border-saaj-line px-5 py-16 md:px-8 md:py-20">
-            <div className="flex items-center gap-5">
-              <h2 className="eyebrow">Reviews</h2>
-              <span className="h-px flex-1 bg-saaj-line" />
-            </div>
-            <div className="mt-8 grid grid-cols-1 gap-px bg-saaj-line md:grid-cols-3">
-              {product.reviews.map((r: Review) => (
-                <article key={r.id} className="bg-background p-6">
-                  <StarRating value={r.rating} />
-                  <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{r.body}</p>
-                  <p className="mt-5 text-[0.625rem] uppercase tracking-[0.22em] text-foreground/70">
-                    {r.name} — {r.date}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        <ReviewsSection productId={product.id} productName={product.name} />
 
         <section className="px-5 py-16 md:px-8 md:py-24">
           <div className="flex items-center gap-5">
@@ -261,5 +252,141 @@ function ProductPage() {
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+function ProductRatingSummary({ productId }: { productId?: string }) {
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["reviews", productId],
+    queryFn: () => listProductReviews({ data: { productId: productId! } }),
+    enabled: Boolean(productId),
+  });
+  const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+
+  return (
+    <div className="mt-4 flex items-center gap-3">
+      <StarRating value={avg} />
+      <span className="text-[0.625rem] tracking-[0.2em] text-muted-foreground">
+        {reviews.length} REVIEW{reviews.length === 1 ? "" : "S"}
+      </span>
+    </div>
+  );
+}
+
+function ReviewsSection({ productId, productName }: { productId?: string; productName: string }) {
+  const user = useAuth();
+  const qc = useQueryClient();
+  const [rating, setRating] = useState(5);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const reviewsQuery = useQuery({
+    queryKey: ["reviews", productId],
+    queryFn: () => listProductReviews({ data: { productId: productId! } }),
+    enabled: Boolean(productId),
+  });
+
+  const eligibilityQuery = useQuery({
+    queryKey: ["reviews", "eligibility", productId, user?.id],
+    queryFn: () => myReviewEligibility({ data: { productId: productId! } }),
+    enabled: Boolean(productId && user),
+  });
+
+  if (!productId) return null;
+  const reviews = reviewsQuery.data ?? [];
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (body.trim().length < 4) {
+      toast.error("Tell us a little more about the piece.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createReview({ data: { productId, rating, title, body } });
+      toast.success("Review published — thank you.");
+      setTitle("");
+      setBody("");
+      setRating(5);
+      void qc.invalidateQueries({ queryKey: ["reviews", productId] });
+      void qc.invalidateQueries({ queryKey: ["reviews", "eligibility", productId, user?.id] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not publish your review.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="border-t border-saaj-line px-5 py-16 md:px-8 md:py-20">
+      <div className="flex items-center gap-5">
+        <h2 className="eyebrow">Reviews</h2>
+        <span className="h-px flex-1 bg-saaj-line" />
+      </div>
+
+      {reviews.length === 0 ? (
+        <p className="mt-8 text-xs text-muted-foreground">No reviews yet — be the first to wear it in.</p>
+      ) : (
+        <div className="mt-8 grid grid-cols-1 gap-px bg-saaj-line md:grid-cols-3">
+          {reviews.map((r) => (
+            <article key={r.id} className="bg-background p-6">
+              <StarRating value={r.rating} />
+              {r.title ? <p className="mt-3 text-sm">{r.title}</p> : null}
+              <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{r.body}</p>
+              <p className="mt-5 text-[0.625rem] uppercase tracking-[0.22em] text-foreground/70">
+                {r.authorName} {r.verified ? "· VERIFIED BUYER" : ""} —{" "}
+                {new Date(r.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {user && eligibilityQuery.data?.isVerifiedBuyer && !eligibilityQuery.data.alreadyReviewed ? (
+        <form onSubmit={submit} className="mt-12 max-w-lg space-y-6 border-t border-saaj-line pt-10">
+          <p className="eyebrow">Write a review — {productName}</p>
+          <div className="flex items-center gap-2">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRating(n)}
+                aria-label={`${n} stars`}
+                className="p-1"
+              >
+                <StarRating value={n <= rating ? 5 : 0} />
+              </button>
+            ))}
+          </div>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title (optional)"
+            className="w-full border-b border-saaj-line bg-transparent py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-saaj-champagne"
+          />
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={4}
+            placeholder="How does it wear?"
+            className="w-full resize-none border-b border-saaj-line bg-transparent py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-saaj-champagne"
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            className="border border-foreground px-8 py-3 text-[0.625rem] tracking-[0.28em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
+          >
+            {submitting ? "PUBLISHING" : "PUBLISH REVIEW"}
+          </button>
+        </form>
+      ) : user && eligibilityQuery.data?.alreadyReviewed ? (
+        <p className="mt-10 text-xs text-muted-foreground">You've already reviewed this piece — thank you.</p>
+      ) : user && eligibilityQuery.data && !eligibilityQuery.data.isVerifiedBuyer ? (
+        <p className="mt-10 text-xs text-muted-foreground">
+          Reviews are open to verified buyers — order this piece to leave one.
+        </p>
+      ) : null}
+    </section>
   );
 }

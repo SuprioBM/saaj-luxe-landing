@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { inr } from "@/data/catalog";
+import { formatBDT } from "@/data/catalog";
 import { useCategories, useProducts } from "@/lib/catalog-live";
 import { useCartCount } from "@/lib/cart";
 
@@ -144,7 +144,7 @@ export function SiteHeader() {
                         {p.name}
                       </p>
                       <p className="mt-1 text-[0.625rem] tracking-[0.2em] text-muted-foreground">
-                        {inr(p.price)}
+                        {formatBDT(p.price)}
                       </p>
                     </div>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" strokeWidth={1.25} />

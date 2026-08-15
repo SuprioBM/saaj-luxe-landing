@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Heart, Package, User } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, Bell, Heart, Package, User } from "lucide-react";
 
 import { AccountShell } from "@/components/AccountShell";
-import { inr } from "@/data/catalog";
+import { formatBDT } from "@/data/catalog";
 import { useAuth } from "@/lib/auth";
-import { useMyOrders } from "@/lib/queries";
+import { listMyNotifications, markNotificationRead } from "@/lib/notifications.functions";
+import { listMyOrdersDetailed } from "@/lib/orders.functions";
 import { useWishlist } from "@/lib/wishlist";
 
 const TITLE = "Your Account — SAAJ";
@@ -27,9 +29,15 @@ export const Route = createFileRoute("/_authenticated/account/")({
 
 function AccountOverview() {
   const user = useAuth();
-  const { data: orders = [] } = useMyOrders(user?.email);
+  const { data: orders = [] } = useQuery({
+    queryKey: ["orders", "mine", user?.id],
+    queryFn: () => listMyOrdersDetailed(),
+    enabled: Boolean(user),
+  });
   const saved = useWishlist();
-  const spend = orders.reduce((s, o) => s + o.total, 0);
+  const spend = orders
+    .filter((o) => ["paid", "shipped", "delivered"].includes(o.status))
+    .reduce((s, o) => s + o.total, 0);
 
   if (!user) return <SignedOut />;
 
@@ -37,7 +45,7 @@ function AccountOverview() {
     <AccountShell title={`Good to see you, ${user.name.split(" ")[0]}.`}>
       <div className="grid gap-px bg-saaj-line sm:grid-cols-3">
         <Stat label="Orders" value={String(orders.length)} icon={Package} />
-        <Stat label="Lifetime Spend" value={inr(spend)} icon={User} />
+        <Stat label="Lifetime Spend" value={formatBDT(spend)} icon={User} />
         <Stat label="Saved Pieces" value={String(saved.length)} icon={Heart} />
       </div>
 
@@ -64,21 +72,73 @@ function AccountOverview() {
               <div>
                 <p className="text-sm">{o.reference}</p>
                 <p className="mt-1 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
-                  {new Date(o.placedAt).toLocaleDateString("en-IN")} · {o.items.length} PIECE
+                  {new Date(o.placedAt).toLocaleDateString("en-GB")} · {o.items.length} PIECE
                   {o.items.length === 1 ? "" : "S"}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm">{inr(o.total)}</p>
+                <p className="text-sm">{formatBDT(o.total)}</p>
                 <p className="mt-1 text-[0.625rem] tracking-[0.22em] text-saaj-champagne">
-                  {o.status}
+                  {o.status.toUpperCase()}
                 </p>
               </div>
             </li>
           ))}
         </ul>
       )}
+
+      <NotificationsPanel />
     </AccountShell>
+  );
+}
+
+function NotificationsPanel() {
+  const qc = useQueryClient();
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications", "mine"],
+    queryFn: () => listMyNotifications(),
+  });
+
+  if (notifications.length === 0) return null;
+
+  const markRead = (id: string) => {
+    void markNotificationRead({ data: { id } }).then(() =>
+      qc.invalidateQueries({ queryKey: ["notifications", "mine"] }),
+    );
+  };
+
+  return (
+    <div className="mt-16">
+      <div className="flex items-center gap-5">
+        <h2 className="eyebrow flex items-center gap-2">
+          <Bell className="h-3.5 w-3.5" strokeWidth={1.25} />
+          Notifications
+        </h2>
+        <span className="h-px flex-1 bg-saaj-line" />
+      </div>
+      <ul className="mt-8 divide-y divide-saaj-line border-y border-saaj-line">
+        {notifications.slice(0, 8).map((n) => (
+          <li
+            key={n.id}
+            className={`flex items-start justify-between gap-6 py-4 ${n.readAt ? "" : "text-saaj-champagne"}`}
+          >
+            <div>
+              <p className="text-xs">{n.title}</p>
+              <p className="mt-1 text-[0.625rem] leading-relaxed text-muted-foreground">{n.body}</p>
+            </div>
+            {!n.readAt ? (
+              <button
+                type="button"
+                onClick={() => markRead(n.id)}
+                className="shrink-0 text-[0.5625rem] tracking-[0.2em] text-muted-foreground transition-colors hover:text-saaj-champagne"
+              >
+                MARK READ
+              </button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

@@ -25,8 +25,8 @@ export const Route = createFileRoute("/contact")({
 
 const CHANNELS = [
   { icon: Mail, label: "Client care", value: "care@saaj.studio" },
-  { icon: MessageCircle, label: "WhatsApp", value: "+91 90000 00000" },
-  { icon: MapPin, label: "Atelier", value: "Jaipur, Rajasthan — by appointment" },
+  { icon: MessageCircle, label: "WhatsApp", value: "+880 1900-000000" },
+  { icon: MapPin, label: "Atelier", value: "Gulshan, Dhaka — by appointment" },
 ];
 
 function ContactPage() {

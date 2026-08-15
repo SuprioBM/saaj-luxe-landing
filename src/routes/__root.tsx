@@ -11,6 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProducts } from "@/lib/catalog-live";
+import { mergeGuestCartIntoAccount } from "@/lib/cart";
+import { mergeGuestWishlistIntoAccount } from "@/lib/wishlist";
 import appCss from "../styles.css?url";
 
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -146,8 +149,20 @@ function RootComponent() {
         return;
       }
       void router.invalidate();
-      if (event !== "SIGNED_OUT") {
-        void queryClient.invalidateQueries();
+      if (event === "SIGNED_OUT") {
+        // Drop every cached response so a signed-out browser can never flash
+        // the previous account's cart/wishlist/orders/admin data.
+        queryClient.clear();
+        return;
+      }
+      void queryClient.invalidateQueries();
+      if (event === "SIGNED_IN") {
+        // One-time guest → account merge. Best-effort: a failure here must
+        // never block sign-in itself.
+        void mergeGuestCartIntoAccount().catch(() => undefined);
+        void fetchProducts()
+          .then((products) => mergeGuestWishlistIntoAccount(products))
+          .catch(() => undefined);
       }
     });
     return () => {

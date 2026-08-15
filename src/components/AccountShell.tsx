@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { auth, useAuth } from "@/lib/auth";
+import { useAuth, useSignOut } from "@/lib/auth";
 
 const TABS = [
   { to: "/account", label: "Overview" },
@@ -21,6 +21,7 @@ export function AccountShell({
 }) {
   const user = useAuth();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const signOut = useSignOut();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -32,7 +33,7 @@ export function AccountShell({
           {user ? (
             <button
               type="button"
-              onClick={() => void auth.logout()}
+              onClick={() => void signOut()}
               className="flex items-center gap-2 text-[0.625rem] tracking-[0.22em] text-muted-foreground transition-colors hover:text-saaj-champagne"
             >
               SIGN OUT

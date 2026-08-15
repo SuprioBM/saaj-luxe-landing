@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { QuickViewModal } from "@/components/QuickViewModal";
 import { WishlistButton } from "@/components/WishlistButton";
-import { inr, totalStock, type Product } from "@/data/catalog";
+import { formatBDT, totalStock, type Product } from "@/data/catalog";
 
 export function ProductCard({
   product,
@@ -79,7 +79,7 @@ export function ProductCard({
             >
               {product.name}
             </Link>
-            <p className="mt-2 text-xs text-muted-foreground">{inr(product.price)}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{formatBDT(product.price)}</p>
           </div>
         </div>
       </article>

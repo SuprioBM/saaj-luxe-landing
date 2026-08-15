@@ -27,7 +27,10 @@ export type Category = {
   blurb: string;
 };
 
-export type SizeStock = { size: string; stock: number };
+// `id` is the real product_variants.id once live DB data has loaded; the
+// static demo catalog below (placeholder-only, pre-fetch) leaves it "" so UI
+// can guard against ever adding a non-existent variant to a real cart.
+export type SizeStock = { id: string; size: string; stock: number };
 
 export type Review = {
   id: string;
@@ -41,6 +44,8 @@ export type Review = {
 };
 
 export type Product = {
+  /** Real products.id once loaded from the DB; "" for the static placeholder catalog. */
+  id?: string;
   slug: string;
   name: string;
   price: number;
@@ -110,14 +115,14 @@ const shirtSpecs: [string, string][] = [
   ["Fit", "Relaxed, drops from the shoulder"],
   ["Collar", "Soft-fused point collar"],
   ["Care", "Cold hand wash, dry flat, warm iron"],
-  ["Origin", "Cut & sewn in India"],
+  ["Origin", "Cut & sewn in Bangladesh"],
 ];
 
 const metalSpecs: [string, string][] = [
   ["Metal", "925 sterling silver"],
   ["Finish", "Hand-polished, anti-tarnish sealed"],
   ["Care", "Store dry, polish with the enclosed cloth"],
-  ["Origin", "Hand-finished in Jaipur"],
+  ["Origin", "Hand-finished in Dhaka"],
 ];
 
 export const PRODUCTS: Product[] = [
@@ -137,16 +142,16 @@ export const PRODUCTS: Product[] = [
     materials: ["100% crinkle cotton", "Relaxed fit", "Garment dyed in black"],
     specs: shirtSpecs,
     sizes: [
-      { size: "S", stock: 4 },
-      { size: "M", stock: 7 },
-      { size: "L", stock: 0 },
-      { size: "XL", stock: 4 },
-      { size: "XXL", stock: 8 },
+      { id: "", size: "S", stock: 4 },
+      { id: "", size: "M", stock: 7 },
+      { id: "", size: "L", stock: 0 },
+      { id: "", size: "XL", stock: 4 },
+      { id: "", size: "XXL", stock: 8 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Aarav M.",
+        name: "Arafat H.",
         rating: 5,
         date: "2026-06-02",
         verified: true,
@@ -156,7 +161,7 @@ export const PRODUCTS: Product[] = [
       },
       {
         id: "r2",
-        name: "Kabir S.",
+        name: "Kamrul I.",
         rating: 4,
         date: "2026-05-28",
         verified: true,
@@ -165,7 +170,7 @@ export const PRODUCTS: Product[] = [
       },
       {
         id: "r3",
-        name: "Dev R.",
+        name: "Rafiq A.",
         rating: 5,
         date: "2026-05-19",
         verified: false,
@@ -192,16 +197,16 @@ export const PRODUCTS: Product[] = [
     materials: ["Pure European linen", "Structured shoulder", "Straight hem"],
     specs: shirtSpecs,
     sizes: [
-      { size: "S", stock: 2 },
-      { size: "M", stock: 0 },
-      { size: "L", stock: 5 },
-      { size: "XL", stock: 3 },
-      { size: "XXL", stock: 0 },
+      { id: "", size: "S", stock: 2 },
+      { id: "", size: "M", stock: 0 },
+      { id: "", size: "L", stock: 5 },
+      { id: "", size: "XL", stock: 3 },
+      { id: "", size: "XXL", stock: 0 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Ishaan T.",
+        name: "Ishtiaque R.",
         rating: 5,
         date: "2026-07-11",
         verified: true,
@@ -210,7 +215,7 @@ export const PRODUCTS: Product[] = [
       },
       {
         id: "r2",
-        name: "Rohan V.",
+        name: "Rahat K.",
         rating: 4,
         date: "2026-07-08",
         verified: true,
@@ -237,16 +242,16 @@ export const PRODUCTS: Product[] = [
     materials: ["Washed heavy linen", "Drop shoulder", "Extended back hem"],
     specs: shirtSpecs,
     sizes: [
-      { size: "S", stock: 0 },
-      { size: "M", stock: 3 },
-      { size: "L", stock: 6 },
-      { size: "XL", stock: 1 },
-      { size: "XXL", stock: 2 },
+      { id: "", size: "S", stock: 0 },
+      { id: "", size: "M", stock: 3 },
+      { id: "", size: "L", stock: 6 },
+      { id: "", size: "XL", stock: 1 },
+      { id: "", size: "XXL", stock: 2 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Yash B.",
+        name: "Yeasin B.",
         rating: 5,
         date: "2026-07-25",
         verified: true,
@@ -273,14 +278,14 @@ export const PRODUCTS: Product[] = [
     materials: ["925 sterling silver", "3mm rope link", "Lobster clasp"],
     specs: metalSpecs,
     sizes: [
-      { size: "45 cm", stock: 6 },
-      { size: "50 cm", stock: 9 },
-      { size: "55 cm", stock: 0 },
+      { id: "", size: "45 cm", stock: 6 },
+      { id: "", size: "50 cm", stock: 9 },
+      { id: "", size: "55 cm", stock: 0 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Neel A.",
+        name: "Nayeem A.",
         rating: 5,
         date: "2026-06-14",
         verified: true,
@@ -290,7 +295,7 @@ export const PRODUCTS: Product[] = [
       },
       {
         id: "r2",
-        name: "Arjun P.",
+        name: "Arman P.",
         rating: 5,
         date: "2026-06-01",
         verified: true,
@@ -317,14 +322,14 @@ export const PRODUCTS: Product[] = [
     materials: ["925 sterling silver", "7mm flat Cuban link", "Concealed box clasp"],
     specs: metalSpecs,
     sizes: [
-      { size: "45 cm", stock: 0 },
-      { size: "50 cm", stock: 4 },
-      { size: "55 cm", stock: 2 },
+      { id: "", size: "45 cm", stock: 0 },
+      { id: "", size: "50 cm", stock: 4 },
+      { id: "", size: "55 cm", stock: 2 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Vikram D.",
+        name: "Rakibul D.",
         rating: 4,
         date: "2026-07-22",
         verified: true,
@@ -350,18 +355,18 @@ export const PRODUCTS: Product[] = [
     materials: ["925 sterling silver", "Blackened finish", "Sizes 6–12"],
     specs: metalSpecs,
     sizes: [
-      { size: "Size 6", stock: 3 },
-      { size: "Size 7", stock: 5 },
-      { size: "Size 8", stock: 0 },
-      { size: "Size 9", stock: 6 },
-      { size: "Size 10", stock: 2 },
-      { size: "Size 11", stock: 0 },
-      { size: "Size 12", stock: 1 },
+      { id: "", size: "Size 6", stock: 3 },
+      { id: "", size: "Size 7", stock: 5 },
+      { id: "", size: "Size 8", stock: 0 },
+      { id: "", size: "Size 9", stock: 6 },
+      { id: "", size: "Size 10", stock: 2 },
+      { id: "", size: "Size 11", stock: 0 },
+      { id: "", size: "Size 12", stock: 1 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Sameer K.",
+        name: "Sabbir K.",
         rating: 5,
         date: "2026-06-20",
         verified: true,
@@ -371,7 +376,7 @@ export const PRODUCTS: Product[] = [
       },
       {
         id: "r2",
-        name: "Aditya N.",
+        name: "Aminul N.",
         rating: 4,
         date: "2026-06-09",
         verified: true,
@@ -397,18 +402,18 @@ export const PRODUCTS: Product[] = [
     materials: ["925 sterling silver", "8mm brushed band", "Comfort-fit interior"],
     specs: metalSpecs,
     sizes: [
-      { size: "Size 6", stock: 0 },
-      { size: "Size 7", stock: 4 },
-      { size: "Size 8", stock: 7 },
-      { size: "Size 9", stock: 3 },
-      { size: "Size 10", stock: 0 },
-      { size: "Size 11", stock: 2 },
-      { size: "Size 12", stock: 0 },
+      { id: "", size: "Size 6", stock: 0 },
+      { id: "", size: "Size 7", stock: 4 },
+      { id: "", size: "Size 8", stock: 7 },
+      { id: "", size: "Size 9", stock: 3 },
+      { id: "", size: "Size 10", stock: 0 },
+      { id: "", size: "Size 11", stock: 2 },
+      { id: "", size: "Size 12", stock: 0 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Manav J.",
+        name: "Mahin J.",
         rating: 5,
         date: "2026-07-02",
         verified: true,
@@ -434,14 +439,14 @@ export const PRODUCTS: Product[] = [
     materials: ["925 sterling silver", "Matte link body", "Adjustable 19–21cm"],
     specs: metalSpecs,
     sizes: [
-      { size: "Small", stock: 5 },
-      { size: "Medium", stock: 2 },
-      { size: "Large", stock: 0 },
+      { id: "", size: "Small", stock: 5 },
+      { id: "", size: "Medium", stock: 2 },
+      { id: "", size: "Large", stock: 0 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Rehan Q.",
+        name: "Rayhan Q.",
         rating: 5,
         date: "2026-06-18",
         verified: true,
@@ -451,7 +456,7 @@ export const PRODUCTS: Product[] = [
       },
       {
         id: "r2",
-        name: "Tanay G.",
+        name: "Tanvir G.",
         rating: 4,
         date: "2026-05-30",
         verified: false,
@@ -478,14 +483,14 @@ export const PRODUCTS: Product[] = [
     materials: ["925 sterling silver", "3mm flat profile", "Seamless closed form"],
     specs: metalSpecs,
     sizes: [
-      { size: "Small", stock: 3 },
-      { size: "Medium", stock: 6 },
-      { size: "Large", stock: 1 },
+      { id: "", size: "Small", stock: 3 },
+      { id: "", size: "Medium", stock: 6 },
+      { id: "", size: "Large", stock: 1 },
     ],
     reviews: [
       {
         id: "r1",
-        name: "Zayan H.",
+        name: "Zubayer H.",
         rating: 5,
         date: "2026-07-27",
         verified: true,
@@ -548,7 +553,18 @@ export const HERO_SLIDES = [
 
 export const PHILOSOPHY_IMG = philosophy;
 
-export const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+/**
+ * Bangladeshi Taka formatter. Manual digit grouping (South Asian
+ * lakh/crore-style, ##,##,###) rather than relying on an "en-BD" Intl
+ * locale, which isn't reliably shipped in every JS/ICU runtime.
+ */
+export const formatBDT = (n: number) => {
+  const whole = Math.max(0, Math.round(n)).toString();
+  const last3 = whole.slice(-3);
+  const rest = whole.slice(0, -3);
+  const grouped = rest ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",")},${last3}` : last3;
+  return `৳${grouped}`;
+};
 
 export const productsByCategory = (slug: string) =>
   PRODUCTS.filter((p) => p.category === slug);

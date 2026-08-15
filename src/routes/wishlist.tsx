@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { findProduct } from "@/data/catalog";
+import { useProducts } from "@/lib/catalog-live";
 import { useWishlist } from "@/lib/wishlist";
 
 const TITLE = "Saved Pieces — SAAJ";
@@ -24,7 +24,8 @@ export const Route = createFileRoute("/wishlist")({
 
 function WishlistPage() {
   const slugs = useWishlist();
-  const items = slugs.map(findProduct).filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const { data: products = [] } = useProducts();
+  const items = products.filter((p) => slugs.includes(p.slug));
 
   return (
     <div className="min-h-screen bg-background text-foreground">

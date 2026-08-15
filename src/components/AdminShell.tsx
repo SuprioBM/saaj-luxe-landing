@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { BarChart3, Boxes, LogOut, Package, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { auth, useAuth } from "@/lib/auth";
+import { useAuth, useSignOut } from "@/lib/auth";
 
 const NAV = [
   { to: "/admin", label: "Overview", icon: BarChart3 },
@@ -22,6 +22,7 @@ export function AdminShell({
 }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const user = useAuth();
+  const signOut = useSignOut();
 
   return (
     <div className="min-h-screen bg-background text-foreground lg:flex">
@@ -57,7 +58,7 @@ export function AdminShell({
           </p>
           <button
             type="button"
-            onClick={() => void auth.logout()}
+            onClick={() => void signOut()}
             className="mt-3 flex items-center gap-2 text-[0.625rem] tracking-[0.22em] text-muted-foreground transition-colors hover:text-saaj-champagne"
           >
             SIGN OUT

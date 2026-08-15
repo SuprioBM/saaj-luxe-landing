@@ -31,7 +31,7 @@ export const Route = createFileRoute("/returns")({
         {
           heading: "Size exchanges",
           body: [
-            "First size exchange on shirts is free within India. We reserve your new size for seven days while the original is in transit.",
+            "First size exchange on shirts is free within Bangladesh. We reserve your new size for seven days while the original is in transit.",
           ],
         },
         {

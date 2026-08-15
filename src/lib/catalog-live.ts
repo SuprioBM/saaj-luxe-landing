@@ -35,11 +35,11 @@ type Row = {
   created_at: string;
   categories: { slug: string } | null;
   product_images: { url: string; position: number; is_primary: boolean }[];
-  product_variants: { size: string; stock: number }[];
+  product_variants: { id: string; size: string; stock: number; reserved: number }[];
 };
 
 const SELECT =
-  "id,slug,name,description,price,discount_price,sku,materials,tags,is_new,created_at,categories:category_id(slug),product_images(url,position,is_primary),product_variants(size,stock)";
+  "id,slug,name,description,price,discount_price,sku,materials,tags,is_new,created_at,categories:category_id(slug),product_images(url,position,is_primary),product_variants(id,size,stock,reserved)";
 
 function sizeOrder(categorySlug: string) {
   return SIZE_SETS[categorySlug] ?? [];
@@ -57,9 +57,10 @@ function toProduct(row: Row): Product {
   const order = sizeOrder(categorySlug);
   const sizes = [...row.product_variants]
     .sort((a, b) => order.indexOf(a.size) - order.indexOf(b.size))
-    .map((v) => ({ size: v.size, stock: v.stock }));
+    .map((v) => ({ id: v.id, size: v.size, stock: Math.max(0, v.stock - v.reserved) }));
 
   return {
+    id: row.id,
     slug: row.slug,
     name: row.name,
     price: Number(row.discount_price ?? row.price),
@@ -74,7 +75,9 @@ function toProduct(row: Row): Product {
     detail: row.description || (base?.detail ?? ""),
     materials: row.materials.length ? row.materials : (base?.materials ?? []),
     specs: base?.specs ?? [],
-    sizes: sizes.length ? sizes : (base?.sizes ?? []),
+    // Sizes are DB-authoritative once the product exists there — never fall
+    // back to the static demo stock numbers, or "in stock" would lie.
+    sizes,
     reviews: (base?.reviews ?? []) as Review[],
     pairsWith: base?.pairsWith ?? [],
   };

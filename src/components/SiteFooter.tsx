@@ -98,7 +98,7 @@ export function SiteFooter() {
           © 2026 SAAJ — MADE FOR THE FEW
         </p>
         <p className="text-[0.625rem] tracking-[0.22em] text-muted-foreground">
-          COMPLIMENTARY SHIPPING OVER ₹4,999
+          COMPLIMENTARY SHIPPING OVER ৳5,000
         </p>
       </div>
     </footer>

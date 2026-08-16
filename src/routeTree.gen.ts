@@ -36,7 +36,7 @@ import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminCustomersRouteImport } from './routes/_authenticated/admin.customers'
 import { Route as AuthenticatedAccountProfileRouteImport } from './routes/_authenticated/account.profile'
 import { Route as AuthenticatedAccountOrdersRouteImport } from './routes/_authenticated/account.orders'
-import { Route as ApiPublicPaymentsSslcommerzActionRouteImport } from './routes/api/public/payments/sslcommerz.$action'
+import { Route as ApiPublicPaymentsPortposActionRouteImport } from './routes/api/public/payments/portpos.$action'
 
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
@@ -178,10 +178,10 @@ const AuthenticatedAccountOrdersRoute =
     path: '/account/orders',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicPaymentsSslcommerzActionRoute =
-  ApiPublicPaymentsSslcommerzActionRouteImport.update({
-    id: '/api/public/payments/sslcommerz/$action',
-    path: '/api/public/payments/sslcommerz/$action',
+const ApiPublicPaymentsPortposActionRoute =
+  ApiPublicPaymentsPortposActionRouteImport.update({
+    id: '/api/public/payments/portpos/$action',
+    path: '/api/public/payments/portpos/$action',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -212,7 +212,7 @@ export interface FileRoutesByFullPath {
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/account/': typeof AuthenticatedAccountIndexRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
-  '/api/public/payments/sslcommerz/$action': typeof ApiPublicPaymentsSslcommerzActionRoute
+  '/api/public/payments/portpos/$action': typeof ApiPublicPaymentsPortposActionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -240,7 +240,7 @@ export interface FileRoutesByTo {
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/account': typeof AuthenticatedAccountIndexRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
-  '/api/public/payments/sslcommerz/$action': typeof ApiPublicPaymentsSslcommerzActionRoute
+  '/api/public/payments/portpos/$action': typeof ApiPublicPaymentsPortposActionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -271,7 +271,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/account/': typeof AuthenticatedAccountIndexRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
-  '/api/public/payments/sslcommerz/$action': typeof ApiPublicPaymentsSslcommerzActionRoute
+  '/api/public/payments/portpos/$action': typeof ApiPublicPaymentsPortposActionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -302,7 +302,7 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/account/'
     | '/admin/'
-    | '/api/public/payments/sslcommerz/$action'
+    | '/api/public/payments/portpos/$action'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -330,7 +330,7 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/account'
     | '/admin'
-    | '/api/public/payments/sslcommerz/$action'
+    | '/api/public/payments/portpos/$action'
   id:
     | '__root__'
     | '/'
@@ -360,7 +360,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/products'
     | '/_authenticated/account/'
     | '/_authenticated/admin/'
-    | '/api/public/payments/sslcommerz/$action'
+    | '/api/public/payments/portpos/$action'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -383,7 +383,7 @@ export interface RootRouteChildren {
   CategorySlugRoute: typeof CategorySlugRoute
   OrderIdRoute: typeof OrderIdRoute
   ProductSlugRoute: typeof ProductSlugRoute
-  ApiPublicPaymentsSslcommerzActionRoute: typeof ApiPublicPaymentsSslcommerzActionRoute
+  ApiPublicPaymentsPortposActionRoute: typeof ApiPublicPaymentsPortposActionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -577,11 +577,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountOrdersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/payments/sslcommerz/$action': {
-      id: '/api/public/payments/sslcommerz/$action'
-      path: '/api/public/payments/sslcommerz/$action'
-      fullPath: '/api/public/payments/sslcommerz/$action'
-      preLoaderRoute: typeof ApiPublicPaymentsSslcommerzActionRouteImport
+    '/api/public/payments/portpos/$action': {
+      id: '/api/public/payments/portpos/$action'
+      path: '/api/public/payments/portpos/$action'
+      fullPath: '/api/public/payments/portpos/$action'
+      preLoaderRoute: typeof ApiPublicPaymentsPortposActionRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -641,8 +641,7 @@ const rootRouteChildren: RootRouteChildren = {
   CategorySlugRoute: CategorySlugRoute,
   OrderIdRoute: OrderIdRoute,
   ProductSlugRoute: ProductSlugRoute,
-  ApiPublicPaymentsSslcommerzActionRoute:
-    ApiPublicPaymentsSslcommerzActionRoute,
+  ApiPublicPaymentsPortposActionRoute: ApiPublicPaymentsPortposActionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

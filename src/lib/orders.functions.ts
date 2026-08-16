@@ -46,6 +46,7 @@ export type OrderDetail = {
   customerEmail: string;
   customerPhone: string | null;
   shippingAddress: Json;
+  paymentMethod: string;
   paymentStatus: string | null;
   courier: string | null;
   shipmentTrackingNumber: string | null;
@@ -65,7 +66,7 @@ type OrderItemRow = {
 };
 
 const ORDER_DETAIL_SELECT =
-  "id,reference,status,placed_at,total,subtotal,discount,shipping,tax,customer_name,customer_email,customer_phone,shipping_address,user_id,courier,shipment_tracking_number,guest_access_token_hash,order_items(id,product_name,product_slug,size,image_url,qty,unit_price),payments(status)";
+  "id,reference,status,placed_at,total,subtotal,discount,shipping,tax,customer_name,customer_email,customer_phone,shipping_address,user_id,payment_method,courier,shipment_tracking_number,guest_access_token_hash,order_items(id,product_name,product_slug,size,image_url,qty,unit_price),payments(status)";
 
 function toDetail(order: {
   id: string;
@@ -82,6 +83,7 @@ function toDetail(order: {
   customer_phone: string | null;
   shipping_address: Json;
   user_id: string | null;
+  payment_method: string;
   courier: string | null;
   shipment_tracking_number: string | null;
   order_items: OrderItemRow[];
@@ -101,6 +103,7 @@ function toDetail(order: {
     customerEmail: order.customer_email,
     customerPhone: order.customer_phone,
     shippingAddress: order.shipping_address,
+    paymentMethod: order.payment_method,
     paymentStatus: order.payments?.[0]?.status ?? null,
     courier: order.courier,
     shipmentTrackingNumber: order.shipment_tracking_number,

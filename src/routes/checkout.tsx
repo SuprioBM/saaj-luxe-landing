@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { ArrowRight, Banknote, Check, CreditCard, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,7 +8,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { formatBDT } from "@/data/catalog";
 import { useAuth } from "@/lib/auth";
-import { useCart, getGuestCartForCheckout } from "@/lib/cart";
+import { useCart, useClearCart, getGuestCartForCheckout } from "@/lib/cart";
 import { initiateCheckout } from "@/lib/checkout.functions";
 import { previewCoupon } from "@/lib/coupons.functions";
 import { listAddresses } from "@/lib/addresses.functions";
@@ -30,7 +30,19 @@ export const Route = createFileRoute("/checkout")({
   component: CheckoutPage,
 });
 
-const STEPS = ["Details", "Coupon", "Review"] as const;
+const STEPS = ["Details", "Payment", "Review"] as const;
+
+type PaymentMethod = "cod" | "portpos";
+
+const PAYMENT_OPTIONS: {
+  value: PaymentMethod;
+  icon: typeof Banknote;
+  title: string;
+  description: string;
+}[] = [
+  { value: "cod", icon: Banknote, title: "Cash on Delivery", description: "Pay when your order is delivered." },
+  { value: "portpos", icon: CreditCard, title: "Online Payment", description: "Pay securely online with PortPos." },
+];
 
 type FormState = {
   name: string;
@@ -78,9 +90,12 @@ function Field({
 
 function CheckoutPage() {
   const user = useAuth();
+  const navigate = useNavigate();
   const { lines, isLoading: cartLoading } = useCart();
+  const clearCart = useClearCart();
   const [step, setStep] = useState(0);
   const [placing, setPlacing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [couponResult, setCouponResult] = useState<{ valid: boolean; discount: number; message: string } | null>(
     null,
@@ -150,6 +165,11 @@ function CheckoutPage() {
   };
 
   const placeOrder = async () => {
+    if (!paymentMethod) {
+      toast.error("Please choose a payment method.");
+      setStep(1);
+      return;
+    }
     setPlacing(true);
     try {
       const result = await initiateCheckout({
@@ -164,16 +184,34 @@ function CheckoutPage() {
           },
           couponCode: couponResult?.valid ? couponCode.trim() : undefined,
           guestItems: user ? undefined : getGuestCartForCheckout(),
+          paymentMethod,
         },
       });
       // Fallback only — the guest access token normally reaches the order
       // page via the gateway's redirect URL itself (embedded at session
-      // init, preserved through the SSLCommerz round trip). This covers the
-      // rare case that query string is dropped somewhere along the way.
+      // init, preserved through the PortPos round trip) or, for COD, is
+      // written below before navigating there directly.
       if (typeof window !== "undefined" && result.guestToken) {
         window.sessionStorage.setItem(`saaj.guest_token.${result.reference}`, result.guestToken);
       }
-      window.location.href = result.gatewayUrl;
+      if (result.gatewayUrl) {
+        // Online payment — leave the bag alone until payment is actually
+        // confirmed (order.$id.tsx clears it once PortPos verification
+        // succeeds); if the customer abandons the gateway they still have
+        // their bag to retry with.
+        window.location.href = result.gatewayUrl;
+      } else {
+        // Cash on Delivery — nothing left to wait on, the order is already
+        // placed (unpaid, stock committed). Empty the bag now and go
+        // straight to the confirmation/tracking page.
+        try {
+          await clearCart.mutateAsync();
+        } catch {
+          // Non-fatal — the order is placed either way; worst case the bag
+          // shows a stale line the customer can remove manually.
+        }
+        void navigate({ to: "/order/$id", params: { id: result.reference } });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "We couldn't place your order. Please try again.");
       setPlacing(false);
@@ -257,32 +295,67 @@ function CheckoutPage() {
                 )}
 
                 {step === 1 && (
-                  <div className="max-w-md">
-                    <p className="eyebrow mb-4">Have a coupon?</p>
-                    <div className="flex items-end gap-4">
-                      <div className="flex-1">
-                        <Field label="Coupon code" value={couponCode} onChange={setCouponCode} />
+                  <div className="flex flex-col gap-10">
+                    <div>
+                      <p className="eyebrow mb-4">Payment method</p>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {PAYMENT_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setPaymentMethod(opt.value)}
+                            className={`flex items-start gap-4 border px-5 py-5 text-left transition-colors ${
+                              paymentMethod === opt.value
+                                ? "border-saaj-champagne"
+                                : "border-saaj-line hover:border-foreground"
+                            }`}
+                          >
+                            <opt.icon
+                              className={`mt-0.5 h-5 w-5 shrink-0 ${
+                                paymentMethod === opt.value ? "text-saaj-champagne" : "text-muted-foreground"
+                              }`}
+                              strokeWidth={1.25}
+                            />
+                            <span>
+                              <span
+                                className={`block text-xs tracking-[0.08em] ${
+                                  paymentMethod === opt.value ? "text-saaj-champagne" : "text-foreground"
+                                }`}
+                              >
+                                {opt.title}
+                              </span>
+                              <span className="mt-1 block text-[0.6875rem] leading-relaxed text-muted-foreground">
+                                {opt.description}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
                       </div>
-                      <button
-                        type="button"
-                        disabled={checkingCoupon}
-                        onClick={() => void checkCoupon()}
-                        className="mb-1 border border-saaj-line px-6 py-3 text-[0.625rem] tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
-                      >
-                        {checkingCoupon ? "CHECKING" : "APPLY"}
-                      </button>
                     </div>
-                    {couponResult ? (
-                      <p className={`mt-4 text-xs ${couponResult.valid ? "text-saaj-champagne" : "text-destructive"}`}>
-                        {couponResult.message}
-                      </p>
-                    ) : (
-                      <p className="mt-4 text-xs text-muted-foreground">Optional — leave blank to skip.</p>
-                    )}
-                    <p className="mt-6 text-xs text-muted-foreground">
-                      Payment method (card, bKash, Nagad, Rocket or bank transfer) is chosen on the next,
-                      secure SSLCommerz screen.
-                    </p>
+
+                    <div className="max-w-md">
+                      <p className="eyebrow mb-4">Have a coupon?</p>
+                      <div className="flex items-end gap-4">
+                        <div className="flex-1">
+                          <Field label="Coupon code" value={couponCode} onChange={setCouponCode} />
+                        </div>
+                        <button
+                          type="button"
+                          disabled={checkingCoupon}
+                          onClick={() => void checkCoupon()}
+                          className="mb-1 border border-saaj-line px-6 py-3 text-[0.625rem] tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
+                        >
+                          {checkingCoupon ? "CHECKING" : "APPLY"}
+                        </button>
+                      </div>
+                      {couponResult ? (
+                        <p className={`mt-4 text-xs ${couponResult.valid ? "text-saaj-champagne" : "text-destructive"}`}>
+                          {couponResult.message}
+                        </p>
+                      ) : (
+                        <p className="mt-4 text-xs text-muted-foreground">Optional — leave blank to skip.</p>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -296,6 +369,16 @@ function CheckoutPage() {
                         {form.line1}, {form.city}, {form.state} {form.pincode}
                         <br />
                         {form.phone} — {form.email}
+                      </p>
+                    </div>
+                    <div>
+                      <h2 className="eyebrow">Payment</h2>
+                      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                        {paymentMethod === "cod"
+                          ? "Cash on Delivery — pay when your order is delivered."
+                          : paymentMethod === "portpos"
+                            ? "Online Payment — you'll be redirected to PortPos to pay securely."
+                            : "No payment method selected yet."}
                       </p>
                     </div>
                     <ul className="flex flex-col gap-px bg-saaj-line">
@@ -331,18 +414,18 @@ function CheckoutPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={(step === 0 && !detailsValid) || placing}
+                  disabled={(step === 0 && !detailsValid) || (step === 1 && !paymentMethod) || placing}
                   onClick={() => (step === 2 ? void placeOrder() : setStep((s) => s + 1))}
                   className="flex items-center gap-4 border border-saaj-line px-8 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-30 disabled:hover:border-saaj-line disabled:hover:text-foreground"
                 >
                   {placing ? (
                     <>
-                      Redirecting to payment
+                      {paymentMethod === "cod" ? "Placing order" : "Redirecting to payment"}
                       <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.25} />
                     </>
                   ) : step === 2 ? (
                     <>
-                      Pay now
+                      {paymentMethod === "cod" ? "Place order" : "Pay now"}
                       <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
                     </>
                   ) : (

@@ -1,6 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CheckCircle2, Clock, XCircle } from "lucide-react";
+import {
+  ArrowRight,
+  Banknote,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Home,
+  PackageSearch,
+  ShoppingBag,
+  Truck,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,6 +19,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { formatBDT } from "@/data/catalog";
 import { useAuth } from "@/lib/auth";
+import { useClearCart } from "@/lib/cart";
 import { cancelOrder, getOrderByReference, resendGuestTrackingLink, type OrderDetail } from "@/lib/orders.functions";
 
 const TITLE = "Order — SAAJ";
@@ -44,18 +56,31 @@ function paymentBanner(payment: string | null) {
 }
 
 // Display-only lifecycle order — independent of the DB enum's declaration
-// order, and only using statuses the backend actually has.
-const TIMELINE = [
-  { key: "pending", label: "Order Placed" },
-  { key: "paid", label: "Payment Confirmed" },
-  { key: "processing", label: "Processing" },
-  { key: "shipped", label: "Shipped" },
-  { key: "delivered", label: "Delivered" },
+// order, and only using statuses the backend actually has. Online (PortPos)
+// orders show a "Payment Confirmed" step because order.status only ever
+// reaches 'paid' once finalize_order_paid has run. COD orders never go
+// through that step — order.status moves pending → processing → shipped →
+// delivered on its own, and whether cash has actually been collected is
+// shown separately (payments.status), never implied by fulfilment progress.
+const ONLINE_TIMELINE = [
+  { key: "pending", label: "Order Placed", icon: ShoppingBag },
+  { key: "paid", label: "Payment Confirmed", icon: CreditCard },
+  { key: "processing", label: "Processing", icon: PackageSearch },
+  { key: "shipped", label: "Shipped", icon: Truck },
+  { key: "delivered", label: "Delivered", icon: Home },
 ] as const;
 
-function timelineIndex(status: string): number {
-  const i = TIMELINE.findIndex((s) => s.key === status);
-  // "processing"/"paid" etc. all imply every earlier step is also done;
+const COD_TIMELINE = [
+  { key: "pending", label: "Order Placed", icon: ShoppingBag },
+  { key: "processing", label: "Processing", icon: PackageSearch },
+  { key: "shipped", label: "Shipped", icon: Truck },
+  { key: "delivered", label: "Delivered", icon: Home },
+] as const;
+
+function timelineIndex(timeline: readonly { key: string }[], status: string): number {
+  const i = timeline.findIndex((s) => s.key === status);
+  // Any status not on this timeline (e.g. a COD order an admin manually
+  // flagged "paid") falls back to the earliest step rather than crashing;
   // pending itself is index 0 (an order that exists has, at minimum, been
   // placed).
   return i === -1 ? 0 : i;
@@ -87,6 +112,18 @@ function OrderPage() {
 
   const banner = paymentBanner(payment);
   const order = orderQuery.data;
+
+  // This landing only ever carries `?payment=paid` once, right after the
+  // PortPos "return" leg has verified the transaction server-side (see
+  // src/routes/api/public/payments/portpos.$action.ts) — that's the moment
+  // online payment actually succeeded, so the bag is emptied here rather
+  // than at checkout (an abandoned/failed payment must leave the bag
+  // intact so the customer can retry).
+  const clearCart = useClearCart();
+  useEffect(() => {
+    if (payment === "paid") void clearCart.mutateAsync().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payment]);
 
   const refetch = () => void qc.invalidateQueries({ queryKey: ["order", id, user?.id, token] });
 
@@ -121,7 +158,16 @@ function OrderPage() {
                 hand-checked and packed before dispatch.
               </p>
 
-              <StatusTimeline status={order.status} />
+              <StatusTimeline status={order.status} paymentMethod={order.paymentMethod} />
+
+              {order.paymentMethod === "cod" && order.status !== "cancelled" && order.status !== "refunded" ? (
+                <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
+                  <Banknote className="h-4 w-4 shrink-0" strokeWidth={1.25} />
+                  {order.paymentStatus === "succeeded"
+                    ? "Cash on delivery — payment collected."
+                    : `Cash on delivery — pay ${formatBDT(order.total)} when your order arrives.`}
+                </div>
+              ) : null}
 
               {order.courier || order.shipmentTrackingNumber ? (
                 <div className="mt-10 border border-saaj-line p-5 sm:p-6">
@@ -247,23 +293,35 @@ function OrderPage() {
   );
 }
 
-function StatusTimeline({ status }: { status: string }) {
+function StatusTimeline({ status, paymentMethod }: { status: string; paymentMethod: string }) {
   if (status === "cancelled" || status === "refunded") return null;
-  const active = timelineIndex(status);
+  const timeline = paymentMethod === "cod" ? COD_TIMELINE : ONLINE_TIMELINE;
+  // A COD order never reaches order.status 'paid' through any code path in
+  // this app — but if it were ever set that way by hand, treat it as
+  // "processing" rather than falling off the known-steps list entirely.
+  const normalizedStatus = paymentMethod === "cod" && status === "paid" ? "processing" : status;
+  const active = timelineIndex(timeline, normalizedStatus);
   return (
     <div className="mt-10 flex gap-1">
-      {TIMELINE.map((s, i) => (
-        <div key={s.key} className="flex-1">
-          <div className={`h-px ${i <= active ? "bg-saaj-champagne" : "bg-saaj-line"}`} />
-          <p
-            className={`mt-3 text-[0.5rem] leading-tight tracking-[0.16em] sm:text-[0.5625rem] sm:tracking-[0.22em] ${
-              i <= active ? "text-saaj-champagne" : "text-muted-foreground"
-            }`}
-          >
-            {s.label.toUpperCase()}
-          </p>
-        </div>
-      ))}
+      {timeline.map((s, i) => {
+        const isActive = i <= active;
+        return (
+          <div key={s.key} className="flex-1">
+            <s.icon
+              className={`mb-3 h-4 w-4 ${isActive ? "text-saaj-champagne" : "text-muted-foreground"}`}
+              strokeWidth={1.25}
+            />
+            <div className={`h-px ${isActive ? "bg-saaj-champagne" : "bg-saaj-line"}`} />
+            <p
+              className={`mt-3 text-[0.5rem] leading-tight tracking-[0.16em] sm:text-[0.5625rem] sm:tracking-[0.22em] ${
+                isActive ? "text-saaj-champagne" : "text-muted-foreground"
+              }`}
+            >
+              {s.label.toUpperCase()}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -31,7 +31,7 @@ export const Route = createFileRoute("/privacy")({
         {
           heading: "Payments",
           body: [
-            "Card, bKash, Nagad and Rocket details are handled by our payment gateway (SSLCommerz) and are never stored on SAAJ systems.",
+            "For online payment, card, bKash and net banking details are handled by our payment gateway (PortPos) and are never stored on SAAJ systems. For Cash on Delivery, no payment details are collected online at all — payment is made directly to the courier on delivery.",
           ],
         },
         {

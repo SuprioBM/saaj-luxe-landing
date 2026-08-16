@@ -388,6 +388,7 @@ export type Database = {
           discount: number
           guest_access_token_hash: string | null
           id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
           placed_at: string
           reference: string
           shipment_tracking_number: string | null
@@ -410,6 +411,7 @@ export type Database = {
           discount?: number
           guest_access_token_hash?: string | null
           id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
           placed_at?: string
           reference: string
           shipment_tracking_number?: string | null
@@ -432,6 +434,7 @@ export type Database = {
           discount?: number
           guest_access_token_hash?: string | null
           id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
           placed_at?: string
           reference?: string
           shipment_tracking_number?: string | null
@@ -842,10 +845,15 @@ export type Database = {
           p_customer: Json
           p_guest_token_hash?: string | null
           p_items: Json
+          p_payment_method?: string
           p_shipping_address: Json
           p_user_id: string | null
         }
         Returns: Json
+      }
+      mark_cod_collected: {
+        Args: { p_actor_id?: string | null; p_order_id: string }
+        Returns: undefined
       }
       finalize_order_paid: {
         Args: {
@@ -886,6 +894,7 @@ export type Database = {
         | "delivered"
         | "cancelled"
         | "refunded"
+      payment_method: "cod" | "portpos"
       payment_status:
         | "requires_payment"
         | "processing"

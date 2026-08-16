@@ -1,11 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { initSslCommerzSession } from "@/lib/payments/sslcommerz";
+import { initPortPosInvoice } from "@/lib/payments/portpos";
 import { checkoutSchema } from "@/lib/schemas";
 import { optionalSupabaseAuth } from "@/lib/mw/optionalAuth";
 import { assertRateLimit } from "@/lib/mw/rateLimit";
 import { generateGuestToken, hashGuestToken } from "@/lib/mw/guestToken";
+import { sendOrderConfirmationForOrder } from "@/lib/email/orderConfirmation";
 
 const guestItemSchema = z.object({
   variantId: z.string().uuid(),
@@ -29,6 +30,7 @@ function friendlyPlaceOrderError(message: string): string {
   if (message.includes("COUPON_LIMIT_REACHED")) return "That coupon has reached its usage limit.";
   if (message.includes("COUPON_ALREADY_USED")) return "You've already used that coupon.";
   if (message.includes("EMPTY_CART")) return "Your bag is empty.";
+  if (message.includes("INVALID_PAYMENT_METHOD")) return "Please choose a payment method.";
   return "We couldn't place your order. Please try again.";
 }
 
@@ -76,6 +78,7 @@ export const initiateCheckout = createServerFn({ method: "POST" })
       p_items: items.map((i) => ({ variant_id: i.variantId, qty: i.qty })),
       p_coupon_code: data.couponCode || null,
       p_guest_token_hash: guestTokenHash,
+      p_payment_method: data.paymentMethod,
     });
 
     if (error || !result) {
@@ -93,8 +96,24 @@ export const initiateCheckout = createServerFn({ method: "POST" })
       if (cart) await supabaseAdmin.from("cart_items").delete().eq("cart_id", cart.id);
     }
 
+    // Cash on Delivery: the order created above (place_order already
+    // committed real stock for COD lines, see the migration) is the whole
+    // transaction — no gateway, no redirect, payment stays unpaid until an
+    // admin marks it collected on delivery. Nothing left to wait on, so the
+    // confirmation email goes out now (mirrors what the PortPos webhook
+    // does after a verified payment).
+    if (data.paymentMethod === "cod") {
+      await sendOrderConfirmationForOrder(supabaseAdmin, order.order_id, guestToken);
+      return {
+        reference: order.reference,
+        total: order.total,
+        gatewayUrl: null,
+        guestToken, // null for signed-in checkouts
+      };
+    }
+
     try {
-      const session = await initSslCommerzSession({
+      const session = await initPortPosInvoice({
         orderId: order.order_id,
         reference: order.reference,
         amount: order.total,
@@ -105,7 +124,7 @@ export const initiateCheckout = createServerFn({ method: "POST" })
 
       await supabaseAdmin
         .from("payments")
-        .update({ gateway_session_id: session.sessionKey })
+        .update({ gateway_session_id: session.invoiceId })
         .eq("order_id", order.order_id);
 
       return {

@@ -5,7 +5,13 @@ import { toast } from "sonner";
 
 import { AdminShell } from "@/components/AdminShell";
 import { formatBDT } from "@/data/catalog";
-import { adminListOrders, adminSetShipment, adminUpdateOrderStatus, type AdminOrder } from "@/lib/admin/orders.functions";
+import {
+  adminListOrders,
+  adminMarkCodCollected,
+  adminSetShipment,
+  adminUpdateOrderStatus,
+  type AdminOrder,
+} from "@/lib/admin/orders.functions";
 
 const TITLE = "Orders — SAAJ Atelier Desk";
 const DESCRIPTION = "Review and progress every SAAJ order from confirmation to delivery.";
@@ -65,6 +71,19 @@ function AdminOrders() {
     }
   };
 
+  const collectCod = async (orderId: string, reference: string) => {
+    setPending(orderId);
+    try {
+      await adminMarkCodCollected({ data: { orderId } });
+      toast.success(`${reference} marked collected.`);
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update this order's payment status.");
+    } finally {
+      setPending(null);
+    }
+  };
+
   return (
     <AdminShell title="Orders" subtitle="Every dispatch, tracked.">
       <div className="saaj-rail flex gap-6 overflow-x-auto border-b border-saaj-line pb-4">
@@ -105,6 +124,9 @@ function AdminOrders() {
                     >
                       {o.isGuest ? "GUEST" : "REGISTERED"}
                     </span>
+                    <span className="ml-3 text-[0.5625rem] tracking-[0.2em] text-muted-foreground">
+                      {o.paymentMethod === "cod" ? "COD" : "ONLINE (PORTPOS)"}
+                    </span>
                   </p>
                   <p className="mt-1 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
                     {o.customerName} · {o.customerEmail}
@@ -122,6 +144,17 @@ function AdminOrders() {
               <p className="mt-5 text-xs text-muted-foreground">
                 {o.items.map((i) => `${i.name} (${i.size}) ×${i.qty}`).join(" · ")}
               </p>
+
+              {o.paymentMethod === "cod" && o.paymentStatus !== "succeeded" ? (
+                <button
+                  type="button"
+                  disabled={pending === o.id}
+                  onClick={() => void collectCod(o.id, o.reference)}
+                  className="mt-3 border border-saaj-champagne px-4 py-2 text-[0.5625rem] tracking-[0.22em] text-saaj-champagne transition-colors hover:bg-saaj-champagne hover:text-background disabled:opacity-40"
+                >
+                  MARK COD COLLECTED
+                </button>
+              ) : null}
 
               {o.courier || o.shipmentTrackingNumber ? (
                 <p className="mt-3 text-[0.625rem] tracking-[0.2em] text-muted-foreground">

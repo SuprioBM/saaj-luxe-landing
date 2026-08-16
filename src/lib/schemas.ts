@@ -69,11 +69,14 @@ export const checkoutAddressSchema = z.object({
   country: z.string().trim().length(2).default("BD"),
 });
 
+export const paymentMethodSchema = z.enum(["cod", "portpos"]);
+
 export const checkoutSchema = z.object({
   addressId: z.string().uuid().optional(),
   customer: checkoutCustomerSchema,
   shippingAddress: checkoutAddressSchema,
   couponCode: z.string().trim().max(40).optional().nullable(),
+  paymentMethod: paymentMethodSchema,
 });
 
 export const cancelOrderSchema = z.object({
@@ -102,6 +105,10 @@ export const adminSetShipmentSchema = z.object({
   orderId: z.string().uuid(),
   courier: z.string().trim().max(80).optional().nullable(),
   trackingNumber: z.string().trim().max(120).optional().nullable(),
+});
+
+export const adminMarkCodCollectedSchema = z.object({
+  orderId: z.string().uuid(),
 });
 
 export const reviewInputSchema = z.object({

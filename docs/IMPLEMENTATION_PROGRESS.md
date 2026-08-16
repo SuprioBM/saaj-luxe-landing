@@ -144,3 +144,71 @@ implementation now — this file updates as each phase lands, not just at the en
 this sandbox mid-session (unrelated to the app — DNS resolution failed for all external hosts,
 including google.com); work paused on anything needing the DB/network and resumed once
 connectivity returned, rather than reporting unverified results.
+
+---
+
+## Phase 12 — SSLCommerz → PortPos + Cash on Delivery (2026-08-16)
+Decision reversal: SSLCommerz's cost structure doesn't fit SAAJ's ~৳10,000 initial launch
+capital. Switched to **PortPos** (৳0 setup/monthly, ~2.2–3.5% per-txn) for online payment, and
+added **Cash on Delivery** as a first-class payment method — both requirements from the user,
+not a redesign of checkout/commerce.
+
+- [x] Migration `20260816130000_portpos_cod_payments.sql`: new `payment_method` enum
+  (`cod`/`portpos`) + `orders.payment_method` column; `place_order` (v3, 8-arg) branches
+  inventory handling — COD commits real stock immediately (no gateway step to abandon), PortPos
+  keeps the existing reserve-then-commit-on-payment behaviour; `cancel_order` patched so
+  "was stock actually committed" also accounts for COD, independent of `order.status`; new
+  `mark_cod_collected` RPC (the only place a COD payment becomes `succeeded`, idempotent, never
+  touches `order.status`). Applied to the live DB via `supabase db push --db-url` (remote
+  migration history table was never populated by earlier sessions — repaired with
+  `migration repair --status applied` for the 10 pre-existing migrations first, then pushed only
+  the new one). Verified live: 18/18 assertions across a full COD lifecycle (place → commit
+  stock → mark collected, idempotent × 2 → cancel → restock, payment stays `succeeded`) and a
+  full PortPos lifecycle (place → reserve → `finalize_order_paid`, idempotent × 2 → cancel →
+  restock) — inventory returned to exact baseline after cleanup.
+- [x] `src/lib/payments/portpos.ts` (replaces `sslcommerz.ts`): invoice creation
+  (`POST /payment/v2/invoice`), Bearer-token auth (`base64(appKey:md5(secret+unixTimestamp))`),
+  and authoritative verification (`GET /payment/v2/invoice/ipn/{invoiceId}/{amount}` — PortPos
+  itself checks the amount we pass, equivalent to SSLCommerz's Order Validation API). API shape
+  confirmed against PortPos's public docs and the open-source PortWallet PHP SDK (PortPos is
+  PortWallet's current brand, same API family) — exact IPN/redirect payload field names could
+  not be 100% confirmed from public sources (no sandbox account available in this session), so
+  the callback route never trusts incoming payload fields for the paid decision — only the `ref`
+  query param we ourselves embed, used to look up our own stored invoice id and expected amount.
+  **A real sandbox transaction against real PortPos credentials is still needed before launch**
+  to confirm the redirect leg's exact field names — see final report.
+- [x] `src/routes/api/public/payments/portpos.$action.ts` (replaces `sslcommerz.$action.ts`):
+  `return` (browser leg) + `ipn` (server-to-server) actions, both GET+POST, idempotent
+  (short-circuits on `order.status === 'paid'`), rejects orders that aren't `payment_method
+  = 'portpos'`, never marks anything paid without a successful `validatePortPosTransaction` call.
+- [x] `checkout.functions.ts`: `place_order` call now passes `p_payment_method`; COD returns
+  immediately after `place_order` (no gateway call, `gatewayUrl: null`); PortPos unchanged in
+  shape (still rolls back via `cancel_order` on gateway-init failure).
+- [x] `schemas.ts`: `paymentMethodSchema`, `checkoutSchema.paymentMethod` (required),
+  `adminMarkCodCollectedSchema`.
+- [x] `orders.functions.ts` / `admin/orders.functions.ts`: `paymentMethod` exposed on
+  `OrderDetail`/`AdminOrder`; new `adminMarkCodCollected` server fn (staff-only, delegates to the
+  RPC, re-validates server-side).
+- [x] Checkout UI (`checkout.tsx`): new "Payment" step — Cash on Delivery / Online Payment cards
+  with the exact copy specified, required before proceeding; COD navigates straight to
+  `/order/$id` (no redirect), PortPos redirects to the gateway URL as before.
+- [x] Tracking UI (`order.$id.tsx`): **added a lucide icon per timeline step**
+  (ShoppingBag/CreditCard/PackageSearch/Truck/Home) above each hairline segment — this was the
+  second ask ("only lines are showing, add logos for each step"). COD orders get their own
+  4-step timeline (no "Payment Confirmed" step, since order.status never implies COD money was
+  actually collected) plus a separate "pay ৳X on delivery" / "payment collected" line driven by
+  `payments.status`.
+- [x] Admin UI (`admin.orders.tsx`): COD/ONLINE (PORTPOS) badge per order; "MARK COD COLLECTED"
+  button (hidden once `paymentStatus === 'succeeded'`).
+- [x] Cleanup: deleted `src/lib/payments/sslcommerz.ts` and
+  `src/routes/api/public/payments/sslcommerz.$action.ts`; `.env`/`.env.example` SSLCOMMERZ_* →
+  PORTPOS_APP_KEY/PORTPOS_SECRET/PORTPOS_MODE; `privacy.tsx` payments copy updated. Repo-wide
+  grep confirms zero remaining `sslcommerz` references outside generated files
+  (`routeTree.gen.ts`, regenerated) and historical artifacts that must not be touched (already-
+  applied migration files, this log's own earlier entries, `docs/schema.sql` — a stale reference
+  mirror that was already out of sync with the DB before this session and is conventionally not
+  kept in lockstep, per Part 2 of HANDOFF.md).
+- [x] `tsc --noEmit` clean, `bunx vitest run` 26/26, `bun run build` succeeds, `eslint` on every
+  touched file shows zero rule violations (581 flagged lines are 100% pre-existing CRLF vs.
+  prettier's LF expectation, the same repo-wide non-issue the 2026-08-15 session already
+  documented).

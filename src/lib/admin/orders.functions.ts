@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { adminOrderStatusSchema, adminSetShipmentSchema } from "@/lib/schemas";
+import { adminMarkCodCollectedSchema, adminOrderStatusSchema, adminSetShipmentSchema } from "@/lib/schemas";
 import { requireStaff } from "@/lib/mw/authz";
 
 export type AdminOrder = {
@@ -12,6 +12,7 @@ export type AdminOrder = {
   total: number;
   customerName: string;
   customerEmail: string;
+  paymentMethod: string;
   paymentStatus: string | null;
   isGuest: boolean;
   courier: string | null;
@@ -20,7 +21,7 @@ export type AdminOrder = {
 };
 
 const SELECT =
-  "id,reference,status,placed_at,total,customer_name,customer_email,user_id,courier,shipment_tracking_number,order_items(product_name,size,qty),payments(status)";
+  "id,reference,status,placed_at,total,customer_name,customer_email,user_id,payment_method,courier,shipment_tracking_number,order_items(product_name,size,qty),payments(status)";
 
 type OrderRow = {
   id: string;
@@ -31,6 +32,7 @@ type OrderRow = {
   customer_name: string;
   customer_email: string;
   user_id: string | null;
+  payment_method: string;
   courier: string | null;
   shipment_tracking_number: string | null;
   order_items: { product_name: string; size: string; qty: number }[];
@@ -46,6 +48,7 @@ function toAdminOrder(row: OrderRow): AdminOrder {
     total: Number(row.total),
     customerName: row.customer_name,
     customerEmail: row.customer_email,
+    paymentMethod: row.payment_method,
     paymentStatus: row.payments?.[0]?.status ?? null,
     isGuest: !row.user_id,
     courier: row.courier,
@@ -150,6 +153,31 @@ export const adminSetShipment = createServerFn({ method: "POST" })
     });
     if (error) throw error;
     return { courier: data.courier ?? null, trackingNumber: data.trackingNumber ?? null };
+  });
+
+/**
+ * The one place a COD payment becomes "succeeded" — staff confirming the
+ * courier actually collected cash. Delegates to the atomic, idempotent
+ * mark_cod_collected RPC (re-validates payment_method + order status
+ * server-side regardless of what the UI shows).
+ */
+export const adminMarkCodCollected = createServerFn({ method: "POST" })
+  .middleware([requireStaff])
+  .validator(adminMarkCodCollectedSchema)
+  .handler(async ({ data, context }): Promise<{ orderId: string }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.rpc("mark_cod_collected", {
+      p_order_id: data.orderId,
+      p_actor_id: context.userId,
+    });
+    if (error) {
+      if (error.message.includes("NOT_A_COD_ORDER")) throw new Error("This order isn't Cash on Delivery.");
+      if (error.message.includes("ORDER_NOT_COLLECTIBLE")) throw new Error("This order can no longer be marked collected.");
+      throw new Error("Could not update this order's payment status.");
+    }
+
+    // mark_cod_collected already writes the audit_logs row — nothing to add here.
+    return { orderId: data.orderId };
   });
 
 export const adminGetOrder = createServerFn({ method: "POST" })

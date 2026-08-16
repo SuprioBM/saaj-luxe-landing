@@ -62,13 +62,17 @@ export const initiateCheckout = createServerFn({ method: "POST" })
       throw new Error("Your bag is empty.");
     }
 
-    // Guest orders get a secure random access token — only its hash is
-    // stored (place_order writes it to guest_access_token_hash); the raw
-    // value goes into the payment gateway callback URLs so it survives the
-    // round trip, and later into the confirmation email link. Signed-in
-    // checkouts don't need one — they're authorized by their session.
-    const guestToken = context.userId ? null : await generateGuestToken();
-    const guestTokenHash = guestToken ? await hashGuestToken(guestToken) : null;
+    // Every order — guest or signed-in — gets a secure random tracking
+    // token; only its hash is stored (place_order writes it to
+    // guest_access_token_hash). The raw value goes into the payment gateway
+    // callback URLs so it survives the round trip, and later into the
+    // confirmation email link. This must not be skipped for signed-in
+    // checkouts: the email is routinely opened in a context with no
+    // Supabase session at all (another device, another browser, Gmail's
+    // in-app browser), so session-based auth alone can't authorize that
+    // link — the token is what makes tracking work independently of login.
+    const guestToken = await generateGuestToken();
+    const guestTokenHash = await hashGuestToken(guestToken);
 
     const { data: result, error } = await supabaseAdmin.rpc("place_order", {
       p_user_id: context.userId,
@@ -108,7 +112,7 @@ export const initiateCheckout = createServerFn({ method: "POST" })
         reference: order.reference,
         total: order.total,
         gatewayUrl: null,
-        guestToken, // null for signed-in checkouts
+        guestToken, // always set — see comment above
       };
     }
 
@@ -131,7 +135,7 @@ export const initiateCheckout = createServerFn({ method: "POST" })
         reference: order.reference,
         total: order.total,
         gatewayUrl: session.gatewayUrl,
-        guestToken, // null for signed-in checkouts
+        guestToken, // always set — see comment above
       };
     } catch (gatewayError) {
       // Order + reservation already exist; release them rather than leaving a

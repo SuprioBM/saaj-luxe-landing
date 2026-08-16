@@ -146,7 +146,7 @@ function OrderPage() {
         {orderQuery.isLoading || token === undefined ? (
           <div className="mt-16 saaj-skeleton h-64" />
         ) : !order ? (
-          <NotFoundState orderId={id} />
+          <NotFoundState orderId={id} hasToken={Boolean(token)} isLoggedIn={Boolean(user)} />
         ) : (
           <div className="mt-14 grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
             <div className="min-w-0">
@@ -408,7 +408,22 @@ function CancelModal({
   );
 }
 
-function NotFoundState({ orderId }: { orderId: string }) {
+function NotFoundState({
+  orderId,
+  hasToken,
+  isLoggedIn,
+}: {
+  orderId: string;
+  // A token was present in the URL (or cached for this order on this
+  // device) but the lookup still failed — the real problem is an invalid/
+  // expired/malformed tracking link, not "this order doesn't exist" and
+  // not "you're not logged in". Distinguishing this from the no-token case
+  // matters because the fix is different: a bad link needs a fresh one
+  // (the form below), while no link at all just needs the original email
+  // or a sign-in.
+  hasToken: boolean;
+  isLoggedIn: boolean;
+}) {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -429,16 +444,41 @@ function NotFoundState({ orderId }: { orderId: string }) {
     }
   };
 
+  const heading = hasToken
+    ? "This tracking link isn't valid."
+    : "We couldn't find that order.";
+  const body = hasToken ? (
+    <>
+      It may have expired, been copied incorrectly, or already point to a different order. Request a
+      fresh link below, or{" "}
+      <Link to="/auth" className="underline hover:text-saaj-champagne">
+        sign in
+      </Link>{" "}
+      if this order was placed on your account.
+    </>
+  ) : isLoggedIn ? (
+    <>
+      This link is missing its tracking code, and this order isn't on your signed-in account. Open the
+      tracking link from your confirmation email, or check{" "}
+      <Link to="/account/orders" className="underline hover:text-saaj-champagne">
+        My Orders
+      </Link>
+      .
+    </>
+  ) : (
+    <>
+      This link is missing its tracking code — open it directly from your order confirmation email, or{" "}
+      <Link to="/auth" className="underline hover:text-saaj-champagne">
+        sign in
+      </Link>{" "}
+      if this order was placed on your account.
+    </>
+  );
+
   return (
     <div className="mt-16 max-w-md">
-      <p className="font-display text-3xl font-light">We couldn't find that order.</p>
-      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        If you checked out as a guest, open the tracking link from your confirmation email, or{" "}
-        <Link to="/auth" className="underline hover:text-saaj-champagne">
-          sign in
-        </Link>{" "}
-        if this order was placed on your account.
-      </p>
+      <p className="font-display text-3xl font-light">{heading}</p>
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{body}</p>
 
       <div className="mt-10 border-t border-saaj-line pt-8">
         <p className="eyebrow">Lost your link?</p>

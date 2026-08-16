@@ -160,7 +160,16 @@ export const listMyOrdersDetailed = createServerFn({ method: "POST" })
  * here in three possible ways, checked in order:
  *   1. Signed in and owns the order.
  *   2. Signed in and staff.
- *   3. A guest access token that hashes to the order's stored hash.
+ *   3. A tracking token that hashes to the order's stored hash.
+ * (3) is the path the emailed "Track / Manage Order" link relies on, and it
+ * intentionally does not require (1)/(2) to fail first or require the order
+ * to be a guest order — every order, signed-in or guest, gets a token at
+ * checkout precisely so tracking never depends on the browser that opens
+ * the email having an active login session (a different device, a
+ * different browser, or Gmail's in-app browser all have none; see
+ * migrations/20260816140000_order_tracking_token_all_orders.sql). My
+ * Orders (`listMyOrders*` above) is unaffected — it only ever uses (1),
+ * i.e. still strictly session-based.
  * A wrong/missing token, or a token for a *different* order, is rejected —
  * the hash is compared against *this specific order's* column, so a valid
  * token never grants access to another order (no IDOR).
@@ -198,7 +207,7 @@ export const getOrderByReference = createServerFn({ method: "POST" })
       const { data: staff } = await context.supabase.rpc("is_staff", { _user_id: context.userId });
       allowed = Boolean(staff);
     }
-    if (!allowed && !order.user_id && data.token) {
+    if (!allowed && data.token) {
       allowed = await verifyGuestToken(data.token, order.guest_access_token_hash);
     }
     if (!allowed) throw denied();
@@ -239,7 +248,10 @@ export const cancelOrder = createServerFn({ method: "POST" })
 
     let allowed = false;
     if (context.userId && order.user_id === context.userId) allowed = true;
-    if (!allowed && !order.user_id && data.token) {
+    // Same token check as getOrderByReference, and for the same reason —
+    // it must authorize regardless of whether the order has a user_id, so
+    // cancelling from the emailed tracking link works with no session.
+    if (!allowed && data.token) {
       allowed = await verifyGuestToken(data.token, order.guest_access_token_hash);
     }
     if (!allowed) throw denied();
@@ -280,7 +292,10 @@ export const cancelOrder = createServerFn({ method: "POST" })
         /\/$/,
         "",
       );
-      const qs = !order.user_id && data.token ? `?token=${encodeURIComponent(data.token)}` : "";
+      // Include whatever token authorized this cancellation (guest or
+      // signed-in) so the link in this follow-up email tracks without a
+      // session too, same as the original confirmation email.
+      const qs = data.token ? `?token=${encodeURIComponent(data.token)}` : "";
       await sendOrderCancelledEmail({
         to: order.customer_email,
         customerName: order.customer_name,

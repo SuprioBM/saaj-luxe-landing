@@ -393,3 +393,103 @@ untouched.
 - `src/lib/payments/bkash.ts`, `src/routes/api/public/payments/bkash.callback.ts`, and the
   `finalize_order_paid` / `cancel_order` semantics — membership activation rides the existing
   status→`paid` UPDATE via the `membership_order_paid` trigger.
+
+---
+
+## Phase 15 — AI Commerce Agent (2026-08-31)
+
+Additive. No storefront, auth, Supabase, cart, checkout, order, payment, admin or SAAJ Club
+code was rebuilt. The agent is an untrusted reasoning layer — the backend stays the authority.
+
+### Architecture chosen (from Phase-1 inspection)
+- **LLM**: Groq via an OpenAI-compatible client (`@langchain/openai` → `AGENT_BASE_URL`).
+  Provider is replaceable by env. `.env`'s `GROQ_API_KEY` holds a **comma-separated list of 5
+  keys** — `pickApiKey()` picks one at random per request to spread rate limits. Default model
+  `openai/gpt-oss-120b` (the account has no `llama-3.3`; gpt-oss-120b does tool-calling +
+  streaming well — verified live).
+- **Orchestration**: `@langchain/langgraph` — one `agent` node ⇄ one `ToolNode`, conditional
+  loop, hard step cap (`AGENT_MAX_STEPS`). No extra nodes.
+- **Transport**: SSE. The app is on Cloudflare Workers with no WebSocket layer; a streamed
+  `Response` from a file API route (`src/routes/api/agent/chat.ts`) is the right fit and is
+  outside `start.ts`'s CSRF-for-serverFn filter. Identity comes from the `Authorization`
+  header (`identifyCaller`), never the body.
+- **State**: `chat_threads` / `chat_messages` (migration). The graph runs per-request (no
+  live TCP for a LangGraph checkpointer on Workers), so history is loaded from these tables
+  each turn. `thread_id` in `localStorage`.
+- **RAG**: Postgres full-text search (`knowledge_chunks` + `match_knowledge`). No embedding
+  provider is wired (Groq has no embeddings API; a Worker can't host a model). `match_knowledge`
+  does OR-matched `ts_rank_cd` ranking — good for policy/FAQ where customer wording ≠ document
+  wording. A nullable `embedding vector(384)` column + `pgvector` are in place for a future
+  hybrid upgrade with no re-authoring.
+
+### 15.1 — DB (`supabase db push`, applied + tested)
+- [x] `20260831150000` — `chat_threads`, `chat_messages` (RLS: owner reads own; guest threads
+  reached only through the service-role endpoint by possession of the id). `pgvector`.
+  `knowledge_chunks` (content-hash unique → idempotent ingestion; generated `fts` tsvector +
+  GIN). `match_knowledge` / `replace_knowledge_source` / `prune_chat_threads`.
+- [x] `20260831150100` — **fixes a real pre-existing bug**: `service_role` lacked `USAGE` on
+  schema `security`, so `place_order`'s `is_active_member` call (added in Phase 14) failed for
+  member checkout via `supabaseAdmin`, and the agent's tools failed the same way. Granted.
+  Also switched `match_knowledge` to OR-matching.
+- [x] `20260831150200` — cast the combined rank to `real` (RETURNS TABLE type).
+- [x] Hand-patched `types.ts` (3 tables + 3 RPCs). `tsc` clean.
+
+### 15.2 — agent backend (`src/lib/agent/`)
+- [x] `config.ts` / `provider.ts` — env-driven, key rotation. `context.ts` — `AgentContext`
+  (`userId` from the verified session ONLY) + `AgentCollector` (products / actions / tool
+  calls surfaced to the UI). `graph.ts`, `prompt.ts` (system prompt separate from code),
+  `service.ts` (`runAgent` async generator → SSE events; persists user + final assistant
+  message with metadata), `identify.ts`, `knowledge.ts`.
+- [x] `tools.ts` — 13 tools: `search_products`, `get_product_details`,
+  `get_product_availability`, `get_exclusive_products`, `get_early_access_products`,
+  `get_membership_benefits`, `get_customer_membership`, `get_customer_rewards`,
+  `get_customer_orders`, `get_order_status`, `get_order_details`,
+  `get_cancellation_eligibility`, `get_store_policies` (RAG). Every customer tool is scoped to
+  `ctx.userId`; **none takes a user id / owner / membership flag as an argument**. A guest
+  hitting a customer tool gets `{error:"auth_required"}` → the model asks them to sign in.
+- [x] `src/routes/api/agent/chat.ts` — SSE POST + history GET. Rate-limited via the existing
+  `rate_limits` table (`assertRateLimit`, 20/5min per user-or-ip).
+
+### 15.3 — RAG ingestion
+- [x] `knowledge-sources.ts` — the canonical static knowledge (shipping, returns, terms,
+  privacy, about, contact, product-care, FAQ, SAAJ Club) mirroring the storefront pages,
+  authored so re-ingestion is a no-op on unchanged content. `ingest.ts` — semantic chunking
+  (per section, never mid-paragraph, page+heading kept with each), SHA-256 hash,
+  `replace_knowledge_source` (clears a source's chunks then re-inserts). `scripts/ingest-knowledge.mjs`
+  + a staff serverFn (`adminReingestKnowledge`) with a button on Admin → Overview.
+- [x] 33 chunks / 9 sources ingested to the live DB.
+
+### 15.4 — chat UI (`src/components/agent/`, mounted once in `__root.tsx`)
+- [x] `ChatWidget` — floating bubble using the **actual SAAJ favicon**
+  (`/favicon_io/android-chrome-192x192.png`), draggable (Pointer Events on `document` →
+  mouse + touch, 4px tap/drag threshold, viewport-clamped, position in `localStorage`),
+  hidden while the panel is open so it can't intercept the input row's clicks.
+- [x] `useBodyScrollLock` — position:fixed + restore-scroll technique (holds on mobile Safari,
+  no jump on close). `ChatPanel` — desktop panel / mobile sheet, header (favicon + New chat +
+  close), message list is the **only** scroller (`overscroll-contain`), streaming tokens,
+  "SAAJ is thinking…" / per-tool status lines, compact SAAJ-styled product cards (member
+  prices, link to `/product/$slug`), action pills (navigate existing routes), inline error +
+  RETRY, textarea (Enter send / Shift+Enter newline). Backdrop closes on outside click; the
+  panel is a sibling with a higher z-index so inside clicks never reach it; Escape closes;
+  scrolling is restored on close.
+
+### 15.5 — verification
+- [x] `tsc --noEmit` clean · `vitest` 45/45 · `vite build` succeeds; `@langchain`/`langgraph`
+  are **server bundle only** (`grep` on `.output/public` is clean); server bundle 5.8 MB.
+- [x] Live tool/RAG suite (scratchpad, 25/25): ingestion + idempotency, `match_knowledge`
+  across 6 realistic policy questions + source filtering, product query, `active_membership`
+  callable by `service_role`, order lookup scoped by `user_id`+reference (no cross-account).
+- [x] Live end-to-end through the SSE endpoint + browser: policy question → `get_store_policies`
+  → grounded answer citing the returns policy with the real 5–7 day figure; "recommend a
+  minimal everyday chain" → `search_products` → two real product cards with member prices;
+  guest "Am I a member?" / "How many points do I have?" → polite sign-in prompt (no
+  invention, no "logged-in = member"); "members-only pieces?" → correct empty answer
+  (none seeded). Bubble drag persists across reload; open → background scroll locked
+  (`position:fixed`) → close → restored; outside-click closes, Send/input clicks don't.
+
+### Known limitation
+- **The `GROQ_API_KEY` in `.env` must be valid.** As delivered it is a valid 5-key rotation
+  list and the agent works end-to-end. If the keys expire, the bubble still renders and every
+  message returns "The assistant is unavailable right now" — nothing else in the app breaks.
+- RAG is lexical (FTS), not vector — see the migration note. Swapping in embeddings later is a
+  small migration + wiring an `embed()` call, with no change to `knowledge-sources.ts`.

@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { AdminShell } from "@/components/AdminShell";
 import { formatBDT } from "@/data/catalog";
 import { adminDashboardStats } from "@/lib/admin/dashboard.functions";
+import { adminKnowledgeStatus, adminReingestKnowledge } from "@/lib/admin/agent.functions";
 
 const TITLE = "Atelier Desk — SAAJ";
 const DESCRIPTION = "SAAJ internal dashboard: revenue, orders and inventory health.";
@@ -99,9 +102,72 @@ function AdminOverview() {
               </Link>
             </section>
           </div>
+
+          <AssistantKnowledgePanel />
         </>
       )}
     </AdminShell>
+  );
+}
+
+function AssistantKnowledgePanel() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const { data: status = [] } = useQuery({
+    queryKey: ["admin", "knowledge-status"],
+    queryFn: () => adminKnowledgeStatus(),
+  });
+
+  const reingest = async () => {
+    setBusy(true);
+    try {
+      const res = await adminReingestKnowledge();
+      toast.success(`Knowledge base refreshed — ${res.total} chunks across ${res.sources.length} sources.`);
+      void qc.invalidateQueries({ queryKey: ["admin", "knowledge-status"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not refresh the knowledge base.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-16">
+      <div className="flex items-center gap-5">
+        <h2 className="eyebrow flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5" strokeWidth={1.25} />
+          AI Assistant — knowledge base
+        </h2>
+        <span className="h-px flex-1 bg-saaj-line" />
+      </div>
+      <p className="mt-6 max-w-xl text-xs leading-relaxed text-muted-foreground">
+        The SAAJ assistant answers policy, shipping, returns and brand questions from this
+        retrieval store. Live data (prices, stock, orders, membership, rewards) always comes
+        from the database, never from here. Re-ingest after editing the source content in
+        <span className="text-foreground/80"> src/lib/agent/knowledge-sources.ts</span>.
+      </p>
+      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {status.length ? (
+          status.map((s) => (
+            <span key={s.source} className="text-[0.625rem] tracking-[0.16em] text-muted-foreground">
+              {s.source.toUpperCase()} · {s.chunks}
+            </span>
+          ))
+        ) : (
+          <span className="text-[0.625rem] tracking-[0.16em] text-muted-foreground">
+            NOT YET INGESTED
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void reingest()}
+        className="mt-6 border border-foreground px-8 py-3 text-[0.625rem] tracking-[0.28em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
+      >
+        {busy ? "REFRESHING" : "RE-INGEST KNOWLEDGE"}
+      </button>
+    </section>
   );
 }
 

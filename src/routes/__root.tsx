@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+import { ChatWidget } from "@/components/agent/ChatWidget";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProducts } from "@/lib/catalog-live";
@@ -174,6 +175,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <ChatWidget />
       <Toaster position="bottom-right" />
     </QueryClientProvider>
   );

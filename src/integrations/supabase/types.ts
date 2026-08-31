@@ -98,6 +98,107 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_threads: {
+        Row: {
+          id: string
+          user_id: string | null
+          title: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          title?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          title?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          id: string
+          thread_id: string
+          role: string
+          content: string
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          thread_id: string
+          role: string
+          content?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          thread_id?: string
+          role?: string
+          content?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_chunks: {
+        Row: {
+          id: string
+          source: string
+          page_title: string
+          page_url: string | null
+          section: string
+          content: string
+          content_hash: string
+          token_estimate: number
+          last_updated: string | null
+          embedding: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          source: string
+          page_title: string
+          page_url?: string | null
+          section?: string
+          content: string
+          content_hash: string
+          token_estimate?: number
+          last_updated?: string | null
+          embedding?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          source?: string
+          page_title?: string
+          page_url?: string | null
+          section?: string
+          content?: string
+          content_hash?: string
+          token_estimate?: number
+          last_updated?: string | null
+          embedding?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           cart_id: string
@@ -1113,6 +1214,24 @@ export type Database = {
         Returns: Json
       }
       award_birthday_reward: { Args: { p_user_id: string }; Returns: Json }
+      match_knowledge: {
+        Args: { p_query: string; p_match_count?: number; p_sources?: string[] | null }
+        Returns: {
+          id: string
+          source: string
+          page_title: string
+          page_url: string | null
+          section: string
+          content: string
+          last_updated: string | null
+          rank: number
+        }[]
+      }
+      replace_knowledge_source: {
+        Args: { p_source: string; p_chunks: Json }
+        Returns: number
+      }
+      prune_chat_threads: { Args: { p_days?: number }; Returns: number }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "staff" | "customer"

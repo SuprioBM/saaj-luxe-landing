@@ -9,6 +9,7 @@ import { useAuth, useSignOut } from "@/lib/auth";
 const TABS = [
   { to: "/account", label: "Overview" },
   { to: "/account/orders", label: "Orders" },
+  { to: "/account/membership", label: "SAAJ Club" },
   { to: "/account/profile", label: "Profile" },
 ] as const;
 

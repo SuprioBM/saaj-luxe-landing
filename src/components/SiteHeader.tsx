@@ -66,6 +66,12 @@ export function SiteHeader() {
                 {c.title}
               </Link>
             ))}
+            <Link
+              to="/club"
+              className="text-[0.6875rem] uppercase tracking-[0.24em] text-saaj-champagne/90 transition-colors hover:text-saaj-champagne"
+            >
+              ✦ SAAJ Club
+            </Link>
           </nav>
           <div className="flex items-center gap-5">
             <button
@@ -213,7 +219,17 @@ export function SiteHeader() {
               </Link>
             ))}
 
-            <p className="eyebrow mb-4 mt-10">House</p>
+            <Link
+              to="/club"
+              onClick={() => setMenuOpen(false)}
+              className="mb-2 mt-10 flex items-baseline gap-4 border-b border-saaj-line py-4 text-saaj-champagne"
+            >
+              <span className="text-[0.625rem] tracking-[0.24em]">✦</span>
+              <span className="font-display text-2xl font-light">SAAJ Club</span>
+              <ArrowRight className="ml-auto h-4 w-4 self-center" strokeWidth={1.25} />
+            </Link>
+
+            <p className="eyebrow mb-4 mt-8">House</p>
             <div className="flex flex-col gap-4">
               {[
                 { to: "/shop" as const, label: "Shop All" },

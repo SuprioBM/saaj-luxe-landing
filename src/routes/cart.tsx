@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { formatBDT } from "@/data/catalog";
 import { useCart, useRemoveFromCart, useSetCartQty } from "@/lib/cart";
+import { useMembership } from "@/lib/membership";
 
 const TITLE = "Your Bag — SAAJ";
 const DESCRIPTION = "Review the SAAJ pieces in your bag before checkout.";
@@ -25,7 +26,10 @@ function CartPage() {
   const { lines, isLoading } = useCart();
   const setQty = useSetCartQty();
   const removeItem = useRemoveFromCart();
+  const membership = useMembership();
+  const listSubtotal = lines.reduce((s, l) => s + l.listPrice * l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
+  const clubDiscount = Math.max(0, listSubtotal - subtotal);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -123,7 +127,22 @@ function CartPage() {
                           +
                         </button>
                       </div>
-                      <p className="text-xs text-saaj-champagne">{formatBDT(line.unitPrice * line.qty)}</p>
+                      <p className="text-xs">
+                        {line.listPrice > line.unitPrice ? (
+                          <>
+                            <span className="text-muted-foreground line-through">
+                              {formatBDT(line.listPrice * line.qty)}
+                            </span>{" "}
+                            <span className="text-saaj-champagne">
+                              {formatBDT(line.unitPrice * line.qty)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-saaj-champagne">
+                            {formatBDT(line.unitPrice * line.qty)}
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
                 </li>
@@ -135,8 +154,14 @@ function CartPage() {
               <dl className="mt-6 flex flex-col gap-3 text-xs">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Subtotal</dt>
-                  <dd>{formatBDT(subtotal)}</dd>
+                  <dd>{formatBDT(clubDiscount > 0 ? listSubtotal : subtotal)}</dd>
                 </div>
+                {clubDiscount > 0 ? (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">SAAJ Club discount</dt>
+                    <dd className="text-saaj-champagne">−{formatBDT(clubDiscount)}</dd>
+                  </div>
+                ) : null}
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Shipping</dt>
                   <dd className="text-muted-foreground">Calculated at checkout</dd>
@@ -147,6 +172,15 @@ function CartPage() {
                 <span className="eyebrow">Total</span>
                 <span className="text-sm text-saaj-champagne">{formatBDT(subtotal)}</span>
               </div>
+              {!membership.isMember ? (
+                <Link
+                  to="/club"
+                  className="mt-6 block border border-saaj-line px-4 py-3 text-[0.625rem] leading-relaxed tracking-[0.12em] text-muted-foreground transition-colors hover:border-saaj-champagne hover:text-saaj-champagne"
+                >
+                  ✦ SAAJ CLUB MEMBERS SAVE {membership.config.memberDiscountPercent}% ON ELIGIBLE
+                  PIECES — {formatBDT(membership.config.monthlyPrice)}/MONTH
+                </Link>
+              ) : null}
               <Link
                 to="/checkout"
                 className="mt-8 flex w-full items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne"

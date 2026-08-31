@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BarChart3, Boxes, LogOut, Package, Users } from "lucide-react";
+import { BarChart3, Boxes, Gem, LogOut, Package, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useAuth, useSignOut } from "@/lib/auth";
@@ -9,6 +9,7 @@ const NAV = [
   { to: "/admin/products", label: "Inventory", icon: Boxes },
   { to: "/admin/orders", label: "Orders", icon: Package },
   { to: "/admin/customers", label: "Customers", icon: Users },
+  { to: "/admin/members", label: "SAAJ Club", icon: Gem },
 ] as const;
 
 export function AdminShell({

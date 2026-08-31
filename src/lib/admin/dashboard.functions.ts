@@ -7,6 +7,7 @@ export type AdminStats = {
   orders: number;
   customers: number;
   lowStock: number;
+  activeMembers: number;
   revenueSeries: { label: string; value: number }[];
   topProducts: { slug: string; name: string; sold: number; revenue: number }[];
 };
@@ -17,20 +18,33 @@ const LOW_STOCK_THRESHOLD = 5;
 export const adminDashboardStats = createServerFn({ method: "POST" })
   .middleware([requireStaff])
   .handler(async ({ context }): Promise<AdminStats> => {
-    const [{ data: orders, error: oErr }, { data: variants, error: vErr }, { count: customerCount, error: cErr }, { data: items, error: iErr }] =
-      await Promise.all([
-        context.supabase.from("orders").select("total,status,placed_at,user_id"),
-        context.supabase.from("product_variants").select("stock,reserved"),
-        context.supabase.from("profiles").select("id", { count: "exact", head: true }),
-        context.supabase
-          .from("order_items")
-          .select("product_name,product_slug,qty,unit_price,orders!inner(status)")
-          .in("orders.status", PAID_STATUSES),
-      ]);
+    const [
+      { data: orders, error: oErr },
+      { data: variants, error: vErr },
+      { count: customerCount, error: cErr },
+      { data: items, error: iErr },
+      { data: memberships, error: memErr },
+    ] = await Promise.all([
+      context.supabase.from("orders").select("total,status,placed_at,user_id").eq("order_kind", "product"),
+      context.supabase.from("product_variants").select("stock,reserved"),
+      context.supabase.from("profiles").select("id", { count: "exact", head: true }),
+      context.supabase
+        .from("order_items")
+        .select("product_name,product_slug,qty,unit_price,orders!inner(status,order_kind)")
+        .in("orders.status", PAID_STATUSES)
+        .eq("orders.order_kind", "product"),
+      context.supabase.from("memberships").select("status,current_period_end").eq("status", "ACTIVE"),
+    ]);
     if (oErr) throw oErr;
     if (vErr) throw vErr;
     if (cErr) throw cErr;
     if (iErr) throw iErr;
+    if (memErr) throw memErr;
+
+    const nowMs = Date.now();
+    const activeMembers = ((memberships as { current_period_end: string }[] | null) ?? []).filter(
+      (m) => new Date(m.current_period_end).getTime() > nowMs,
+    ).length;
 
     const paidOrders = (orders ?? []).filter((o) =>
       (PAID_STATUSES as readonly string[]).includes(o.status),
@@ -66,6 +80,7 @@ export const adminDashboardStats = createServerFn({ method: "POST" })
       orders: (orders ?? []).length,
       customers: customerCount ?? 0,
       lowStock,
+      activeMembers,
       revenueSeries: days.map((d) => ({ label: d.label, value: d.value })),
       topProducts,
     };

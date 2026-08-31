@@ -10,6 +10,8 @@ import { StockBadge } from "@/components/StockBadge";
 import { WishlistButton } from "@/components/WishlistButton";
 import { avgRating, formatBDT, stockForSize, type Product } from "@/data/catalog";
 import { useAddToCart } from "@/lib/cart";
+import { useMemberPrice, useMembership, usePotentialMemberPrice } from "@/lib/membership";
+import { canPurchase } from "@/lib/membership-pricing";
 
 export function QuickViewModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [size, setSize] = useState<string | null>(null);
@@ -25,12 +27,17 @@ export function QuickViewModal({ product, onClose }: { product: Product; onClose
     };
   }, [onClose]);
 
+  const membership = useMembership();
+  const memberPrice = useMemberPrice(product);
+  const potentialPrice = usePotentialMemberPrice(product);
+  const purchasable = canPurchase(product, membership.isMember);
+
   const available = stockForSize(product, size);
   // Empty until the live DB fetch resolves (placeholder data intentionally
   // carries no real variant ids) — gates the buy button so it can't be
   // clicked into a false "not ready" error during that brief window.
   const variantId = size ? product.sizes.find((s) => s.size === size)?.id || undefined : undefined;
-  const canAdd = Boolean(size) && Boolean(variantId) && available > 0;
+  const canAdd = purchasable && Boolean(size) && Boolean(variantId) && available > 0;
   const addToCart = useAddToCart();
 
   return (
@@ -67,8 +74,44 @@ export function QuickViewModal({ product, onClose }: { product: Product; onClose
             </span>
           </div>
 
-          <p className="mt-4 text-sm text-saaj-champagne">{formatBDT(product.price)}</p>
+          {memberPrice.isMemberPrice ? (
+            <p className="mt-4 text-sm">
+              <span className="text-muted-foreground line-through">{formatBDT(memberPrice.listPrice)}</span>{" "}
+              <span className="text-saaj-champagne">{formatBDT(memberPrice.memberPrice)}</span>
+              <span className="ml-2 text-[0.5625rem] tracking-[0.18em] text-saaj-champagne/70">CLUB PRICE</span>
+            </p>
+          ) : (
+            <p className="mt-4 text-sm text-saaj-champagne">
+              {formatBDT(product.price)}
+              {potentialPrice.eligible && potentialPrice.saves > 0 ? (
+                <span className="ml-3 text-[0.625rem] text-muted-foreground">
+                  {formatBDT(potentialPrice.memberPrice)} for SAAJ Club
+                </span>
+              ) : null}
+            </p>
+          )}
           <p className="mt-5 text-xs leading-relaxed text-muted-foreground">{product.detail}</p>
+
+          {!purchasable ? (
+            <div className="mt-6 border border-saaj-champagne/30 p-4">
+              <p className="text-[0.5625rem] tracking-[0.24em] text-saaj-champagne">
+                {product.membersOnly && !membership.isMember ? "✦ SAAJ CLUB MEMBERS ONLY" : "✦ COMING SOON"}
+              </p>
+              <p className="mt-2 text-[0.6875rem] leading-relaxed text-muted-foreground">
+                {product.membersOnly && !membership.isMember
+                  ? "Join SAAJ Club to unlock this exclusive piece."
+                  : "Not released yet. SAAJ Club members get early access."}
+              </p>
+              <Link
+                to="/club"
+                onClick={onClose}
+                className="mt-3 inline-flex items-center gap-2 text-[0.5625rem] tracking-[0.24em] text-saaj-champagne hover:underline"
+              >
+                JOIN SAAJ CLUB
+                <ArrowRight className="h-3 w-3" strokeWidth={1.25} />
+              </Link>
+            </div>
+          ) : null}
 
           <div className="mt-7">
             <p className="eyebrow mb-3">Select Size</p>
@@ -102,7 +145,15 @@ export function QuickViewModal({ product, onClose }: { product: Product; onClose
               }}
               className="flex flex-1 items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:cursor-not-allowed disabled:border-white/10 disabled:text-muted-foreground/50 disabled:hover:text-muted-foreground/50"
             >
-              {!size ? "Select a size" : !variantId ? "Loading…" : "Add to bag"}
+              {!purchasable
+                ? product.membersOnly
+                  ? "Members only"
+                  : "Not yet released"
+                : !size
+                  ? "Select a size"
+                  : !variantId
+                    ? "Loading…"
+                    : "Add to bag"}
               <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
             </button>
             <WishlistButton slug={product.slug} label="Save" />

@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { cartAddSchema, cartMergeSchema, cartRemoveSchema, cartSetQtySchema } from "@/lib/schemas";
+import { memberUnitPrice, resolveMemberDiscountBps } from "@/lib/membership-pricing";
 
 export type CartLine = {
   variantId: string;
@@ -13,8 +14,16 @@ export type CartLine = {
   size: string;
   image: string | null;
   qty: number;
+  /** What the customer actually pays per unit — the member price when the
+   * caller is an active SAAJ Club member and the piece is eligible, else the
+   * list price. The DB (`place_order`) recomputes this authoritatively. */
   unitPrice: number;
+  /** Pre-member-discount list price, for the struck-through display. */
+  listPrice: number;
   available: number;
+  membersOnly: boolean;
+  availableFrom: string | null;
+  memberAvailableFrom: string | null;
 };
 
 type CartItemRow = {
@@ -33,13 +42,34 @@ type CartItemRow = {
       price: number | string;
       discount_price: number | string | null;
       status: string;
+      members_only: boolean;
+      member_discount_eligible: boolean;
+      member_discount_bps: number | null;
+      available_from: string | null;
+      member_available_from: string | null;
       product_images: { url: string; position: number; is_primary: boolean }[];
     } | null;
   } | null;
 };
 
 const CART_ITEM_SELECT =
-  "qty,variant_id,product_variants(id,size,stock,reserved,product_id,products(id,slug,name,price,discount_price,status,product_images(url,position,is_primary)))";
+  "qty,variant_id,product_variants(id,size,stock,reserved,product_id,products(id,slug,name,price,discount_price,status,members_only,member_discount_eligible,member_discount_bps,available_from,member_available_from,product_images(url,position,is_primary)))";
+
+type MemberCtx = { isMember: boolean; globalBps: number };
+
+async function memberContext(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<MemberCtx> {
+  const [{ data: isMember }, { data: cfg }] = await Promise.all([
+    supabase.rpc("is_active_member", { _user_id: userId }),
+    supabase.from("membership_config").select("member_discount_bps").maybeSingle(),
+  ]);
+  return {
+    isMember: Boolean(isMember),
+    globalBps: (cfg as { member_discount_bps: number } | null)?.member_discount_bps ?? 1000,
+  };
+}
 
 async function getOrCreateCartId(
   supabase: SupabaseClient<Database>,
@@ -62,7 +92,7 @@ async function getOrCreateCartId(
   return created.id;
 }
 
-function rowsToLines(rows: CartItemRow[]): CartLine[] {
+function rowsToLines(rows: CartItemRow[], ctx: MemberCtx): CartLine[] {
   return rows
     .filter((r): r is CartItemRow & { product_variants: NonNullable<CartItemRow["product_variants"]> } =>
       Boolean(r.product_variants?.products),
@@ -73,6 +103,16 @@ function rowsToLines(rows: CartItemRow[]): CartLine[] {
       const images = [...p.product_images].sort(
         (a, b) => Number(b.is_primary) - Number(a.is_primary) || a.position - b.position,
       );
+      const listPrice = Number(p.discount_price ?? p.price);
+      const bps = ctx.isMember
+        ? resolveMemberDiscountBps(
+            {
+              memberDiscountEligible: p.member_discount_eligible,
+              memberDiscountBps: p.member_discount_bps,
+            },
+            ctx.globalBps,
+          )
+        : 0;
       return {
         variantId: v.id,
         productId: p.id,
@@ -81,8 +121,12 @@ function rowsToLines(rows: CartItemRow[]): CartLine[] {
         size: v.size,
         image: images[0]?.url ?? null,
         qty: r.qty,
-        unitPrice: Number(p.discount_price ?? p.price),
+        unitPrice: memberUnitPrice(listPrice, bps),
+        listPrice,
         available: Math.max(0, v.stock - v.reserved),
+        membersOnly: p.members_only,
+        availableFrom: p.available_from,
+        memberAvailableFrom: p.member_available_from,
       };
     });
 }
@@ -91,12 +135,13 @@ export const getCart = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<CartLine[]> => {
     const cartId = await getOrCreateCartId(context.supabase, context.userId);
+    const ctx = await memberContext(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("cart_items")
       .select(CART_ITEM_SELECT)
       .eq("cart_id", cartId);
     if (error) throw error;
-    return rowsToLines(data as unknown as CartItemRow[]);
+    return rowsToLines(data as unknown as CartItemRow[], ctx);
   });
 
 export const addToCart = createServerFn({ method: "POST" })
@@ -107,13 +152,34 @@ export const addToCart = createServerFn({ method: "POST" })
 
     const { data: variant, error: vErr } = await context.supabase
       .from("product_variants")
-      .select("id,stock,reserved,products(status)")
+      .select("id,stock,reserved,products(status,members_only,available_from,member_available_from)")
       .eq("id", data.variantId)
       .single();
     if (vErr || !variant) throw new Error("This piece is no longer available.");
-    if ((variant.products as { status: string } | null)?.status !== "active") {
+    const product = variant.products as {
+      status: string;
+      members_only: boolean;
+      available_from: string | null;
+      member_available_from: string | null;
+    } | null;
+    if (product?.status !== "active") {
       throw new Error("This piece is no longer available.");
     }
+
+    // SAAJ Club gates — the real enforcement is in place_order, this is a
+    // friendlier early stop so members-only / unreleased pieces don't sit
+    // in a bag that will only fail at checkout.
+    const ctx = await memberContext(context.supabase, context.userId);
+    if (product.members_only && !ctx.isMember) {
+      throw new Error("This piece is a SAAJ Club exclusive.");
+    }
+    const from = ctx.isMember
+      ? (product.member_available_from ?? product.available_from)
+      : product.available_from;
+    if (from && new Date(from).getTime() > Date.now()) {
+      throw new Error("This piece hasn't been released yet.");
+    }
+
     const available = Math.max(0, variant.stock - variant.reserved);
     if (available <= 0) throw new Error("Out of stock.");
 
@@ -143,7 +209,7 @@ export const addToCart = createServerFn({ method: "POST" })
       .select(CART_ITEM_SELECT)
       .eq("cart_id", cartId);
     if (error) throw error;
-    return rowsToLines(rows as unknown as CartItemRow[]);
+    return rowsToLines(rows as unknown as CartItemRow[], ctx);
   });
 
 export const setCartItemQty = createServerFn({ method: "POST" })
@@ -174,12 +240,13 @@ export const setCartItemQty = createServerFn({ method: "POST" })
       if (error) throw error;
     }
 
+    const ctx = await memberContext(context.supabase, context.userId);
     const { data: rows, error } = await context.supabase
       .from("cart_items")
       .select(CART_ITEM_SELECT)
       .eq("cart_id", cartId);
     if (error) throw error;
-    return rowsToLines(rows as unknown as CartItemRow[]);
+    return rowsToLines(rows as unknown as CartItemRow[], ctx);
   });
 
 export const removeCartItem = createServerFn({ method: "POST" })
@@ -194,12 +261,13 @@ export const removeCartItem = createServerFn({ method: "POST" })
       .eq("variant_id", data.variantId);
     if (error) throw error;
 
+    const ctx = await memberContext(context.supabase, context.userId);
     const { data: rows, error: selErr } = await context.supabase
       .from("cart_items")
       .select(CART_ITEM_SELECT)
       .eq("cart_id", cartId);
     if (selErr) throw selErr;
-    return rowsToLines(rows as unknown as CartItemRow[]);
+    return rowsToLines(rows as unknown as CartItemRow[], ctx);
   });
 
 export const clearCart = createServerFn({ method: "POST" })
@@ -244,10 +312,11 @@ export const mergeGuestCart = createServerFn({ method: "POST" })
       }
     }
 
+    const ctx = await memberContext(context.supabase, context.userId);
     const { data: rows, error } = await context.supabase
       .from("cart_items")
       .select(CART_ITEM_SELECT)
       .eq("cart_id", cartId);
     if (error) throw error;
-    return rowsToLines(rows as unknown as CartItemRow[]);
+    return rowsToLines(rows as unknown as CartItemRow[], ctx);
   });

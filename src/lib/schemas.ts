@@ -69,7 +69,7 @@ export const checkoutAddressSchema = z.object({
   country: z.string().trim().length(2).default("BD"),
 });
 
-export const paymentMethodSchema = z.enum(["cod", "portpos"]);
+export const paymentMethodSchema = z.enum(["cod", "bkash"]);
 
 export const checkoutSchema = z.object({
   addressId: z.string().uuid().optional(),
@@ -121,7 +121,51 @@ export const reviewInputSchema = z.object({
 export const profileUpdateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   phone: phoneSchema.optional(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+    .optional()
+    .nullable(),
 });
+
+/* -------------------------------------------------------- SAAJ Club ---- */
+
+export const membershipJoinSchema = z.object({
+  customer: checkoutCustomerSchema,
+  tier: z.enum(["CLUB"]).default("CLUB"),
+});
+
+export const membershipCancelSchema = z.object({
+  immediate: z.boolean().optional().default(false),
+});
+
+export const membershipConfigUpdateSchema = z.object({
+  monthlyPrice: z.number().min(0).max(1_000_000).optional(),
+  memberDiscountPercent: z.number().min(0).max(100).optional(),
+  pointsPer100Bdt: z.number().min(0).max(1000).optional(),
+  rewardPointsEnabled: z.boolean().optional(),
+  birthdayRewardPoints: z.number().int().min(0).max(1_000_000).optional(),
+  gracePeriodDays: z.number().int().min(0).max(90).optional(),
+});
+
+export const adminMembershipSetSchema = z.object({
+  userId: z.string().uuid(),
+  status: z.enum(["ACTIVE", "EXPIRED", "CANCELLED"]),
+  periodEnd: z.string().datetime().optional().nullable(),
+  reason: z.string().trim().min(3, "A reason is required").max(300),
+});
+
+export const adminRewardAdjustSchema = z.object({
+  userId: z.string().uuid(),
+  points: z
+    .number()
+    .int()
+    .refine((n) => n !== 0, "Adjustment cannot be zero")
+    .refine((n) => Math.abs(n) <= 1_000_000, "Adjustment is too large"),
+  reason: z.string().trim().min(3, "A reason is required").max(300),
+});
+
+export const adminMemberDetailSchema = z.object({ userId: z.string().uuid() });
 
 /* ------------------------------------------------------------ admin ---- */
 
@@ -162,6 +206,12 @@ export const adminProductInputSchema = z.object({
   status: z.enum(["draft", "active", "archived"]).default("active"),
   images: z.array(adminImageSchema).max(20).default([]),
   variants: z.array(adminVariantSchema).max(30).default([]),
+  // SAAJ Club
+  membersOnly: z.boolean().default(false),
+  memberDiscountEligible: z.boolean().default(true),
+  memberDiscountPercent: z.number().min(0).max(100).optional().nullable(),
+  availableFrom: z.string().datetime().optional().nullable(),
+  memberAvailableFrom: z.string().datetime().optional().nullable(),
 });
 
 export const adminProductUpdateSchema = adminProductInputSchema.partial().extend({

@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 /**
  * Shared by both places an order becomes "the customer's problem is now
  * solved" — COD (immediately after place_order, since there's no gateway
- * step to wait for) and PortPos (only after finalize_order_paid, i.e. a
+ * step to wait for) and bKash (only after finalize_order_paid, i.e. a
  * verified payment). Server-only; dynamic-imports nodemailer transitively
  * via `@/lib/email/send`, so it's safe to import from a `*.functions.ts`
  * file as long as the import itself stays inside a handler closure.

@@ -19,6 +19,7 @@ export type ApiUser = {
   name: string;
   email: string;
   phone?: string | null;
+  dateOfBirth?: string | null;
   role: Role;
   createdAt: string;
 };
@@ -48,7 +49,7 @@ async function loadUser(
   const [profileRes, rolesRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("name, phone, created_at")
+      .select("name, phone, date_of_birth, created_at")
       .eq("id", uid)
       .maybeSingle(),
     supabase.from("user_roles").select("role").eq("user_id", uid),
@@ -59,6 +60,7 @@ async function loadUser(
     name: (profileRes.data as { name: string } | null)?.name || email?.split("@")[0] || "Member",
     email: email ?? "",
     phone: (profileRes.data as { phone: string | null } | null)?.phone ?? null,
+    dateOfBirth: (profileRes.data as { date_of_birth: string | null } | null)?.date_of_birth ?? null,
     role: roleFromRows(rolesRes.data as { role: string }[] | null),
     createdAt:
       (profileRes.data as { created_at: string } | null)?.created_at ??
@@ -187,7 +189,11 @@ export const auth = {
     if (error) throw error;
   },
 
-  async updateProfile(patch: { name?: string; phone?: string }): Promise<ApiUser | null> {
+  async updateProfile(patch: {
+    name?: string;
+    phone?: string;
+    dateOfBirth?: string | null;
+  }): Promise<ApiUser | null> {
     const current = state.user;
     if (!current) return null;
     const { error } = await supabase
@@ -195,11 +201,17 @@ export const auth = {
       .update({
         ...(patch.name !== undefined ? { name: patch.name } : {}),
         ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
+        ...(patch.dateOfBirth !== undefined ? { date_of_birth: patch.dateOfBirth } : {}),
       })
       .eq("id", current.id);
     if (error) throw error;
     state = {
-      user: { ...current, ...patch, phone: patch.phone ?? current.phone },
+      user: {
+        ...current,
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        phone: patch.phone ?? current.phone,
+        dateOfBirth: patch.dateOfBirth !== undefined ? patch.dateOfBirth : current.dateOfBirth,
+      },
       loading: false,
     };
     emit();

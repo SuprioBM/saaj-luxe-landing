@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Supabase CLI local cache (project ref, pooler URL — not for git)
+supabase/.temp/
+
 # Env files (contain live DB credentials / API keys)
 .env
 .env.*

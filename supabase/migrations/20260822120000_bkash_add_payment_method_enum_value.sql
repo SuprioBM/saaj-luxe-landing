@@ -1,0 +1,12 @@
+-- SAAJ — replace PortPos with bKash (online) + Cash on Delivery.
+--
+-- Step 1 of 2: add the new enum label on its own, in its own migration/
+-- transaction. Postgres won't let a newly-added enum value be *used* (cast
+-- to, compared against, etc.) within the same transaction it was added in
+-- on some versions — splitting this out avoids that entirely, regardless of
+-- which Postgres version this runs against. Step 2
+-- (20260822130000_bkash_payment_functions.sql) is what actually uses it.
+--
+-- 'portpos' is deliberately left in the enum — historical orders already
+-- carry payment_method = 'portpos' and must keep reading back correctly.
+alter type public.payment_method add value if not exists 'bkash';

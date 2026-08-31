@@ -41,10 +41,11 @@ function AdminOverview() {
         </div>
       ) : (
         <>
-          <div className="grid gap-px bg-saaj-line sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-px bg-saaj-line sm:grid-cols-2 lg:grid-cols-5">
             <Metric label="Revenue" value={formatBDT(data.revenue)} />
             <Metric label="Orders" value={String(data.orders)} />
             <Metric label="Customers" value={String(data.customers)} />
+            <Metric label="Club Members" value={String(data.activeMembers)} />
             <Metric label="Low Stock" value={String(data.lowStock)} />
           </div>
 

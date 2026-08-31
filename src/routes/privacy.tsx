@@ -31,7 +31,7 @@ export const Route = createFileRoute("/privacy")({
         {
           heading: "Payments",
           body: [
-            "For online payment, card, bKash and net banking details are handled by our payment gateway (PortPos) and are never stored on SAAJ systems. For Cash on Delivery, no payment details are collected online at all — payment is made directly to the courier on delivery.",
+            "For online payment, your bKash details are handled directly by bKash and are never stored on SAAJ systems. For Cash on Delivery, no payment details are collected online at all — payment is made directly to the courier on delivery.",
           ],
         },
         {

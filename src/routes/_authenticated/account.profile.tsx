@@ -40,6 +40,7 @@ function AccountProfile() {
   const user = useAuth();
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [dob, setDob] = useState(user?.dateOfBirth ?? "");
   const [busy, setBusy] = useState(false);
 
   if (!user) return <SignedOut />;
@@ -48,7 +49,11 @@ function AccountProfile() {
     e.preventDefault();
     setBusy(true);
     try {
-      await auth.updateProfile({ name: name.trim(), phone: phone.trim() });
+      await auth.updateProfile({
+        name: name.trim(),
+        phone: phone.trim(),
+        dateOfBirth: dob.trim() || null,
+      });
       toast.success("Profile updated.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update your profile.");
@@ -76,6 +81,18 @@ function AccountProfile() {
             placeholder="+880"
             onChange={(e) => setPhone(e.target.value)}
           />
+        </div>
+        <div>
+          <label className="eyebrow">Date of birth</label>
+          <input
+            type="date"
+            className={`${field} [color-scheme:dark]`}
+            value={dob}
+            onChange={(e) => setDob(e.target.value)}
+          />
+          <p className="mt-2 text-[0.625rem] leading-relaxed text-muted-foreground">
+            SAAJ Club members get a birthday reward. Optional.
+          </p>
         </div>
         <button
           type="submit"

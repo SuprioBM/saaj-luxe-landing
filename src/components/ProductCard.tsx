@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { Eye } from "lucide-react";
+import { Eye, Lock } from "lucide-react";
 import { useState } from "react";
 
 import { QuickViewModal } from "@/components/QuickViewModal";
 import { WishlistButton } from "@/components/WishlistButton";
 import { formatBDT, totalStock, type Product } from "@/data/catalog";
+import { useMemberPrice, usePotentialMemberPrice } from "@/lib/membership";
 
 export function ProductCard({
   product,
@@ -18,6 +19,11 @@ export function ProductCard({
   const [open, setOpen] = useState(false);
   const stock = totalStock(product);
   const soldOut = stock <= 0;
+  const member = useMemberPrice(product);
+  const potential = usePotentialMemberPrice(product);
+  const comingSoon = Boolean(
+    product.availableFrom && new Date(product.availableFrom).getTime() > Date.now(),
+  );
 
   return (
     <>
@@ -38,7 +44,18 @@ export function ProductCard({
             }`}
           />
           <div className="absolute left-3 top-3 flex flex-col gap-2">
-            {product.isNew && !soldOut && (
+            {product.membersOnly && (
+              <span className="flex items-center gap-1 border border-saaj-champagne/50 bg-background/80 px-2 py-1 text-[0.5625rem] tracking-[0.2em] text-saaj-champagne backdrop-blur">
+                <Lock className="h-2.5 w-2.5" strokeWidth={1.5} />
+                CLUB EXCLUSIVE
+              </span>
+            )}
+            {comingSoon && !soldOut && (
+              <span className="border border-saaj-champagne/40 bg-background/80 px-2 py-1 text-[0.5625rem] tracking-[0.2em] text-saaj-champagne backdrop-blur">
+                EARLY ACCESS
+              </span>
+            )}
+            {product.isNew && !soldOut && !comingSoon && (
               <span className="border border-saaj-line bg-background/70 px-2 py-1 text-[0.5625rem] tracking-[0.22em] backdrop-blur">
                 NEW
               </span>
@@ -48,7 +65,7 @@ export function ProductCard({
                 SOLD OUT
               </span>
             )}
-            {!soldOut && stock <= 4 && (
+            {!soldOut && !comingSoon && stock <= 4 && (
               <span className="border border-saaj-champagne/40 bg-background/70 px-2 py-1 text-[0.5625rem] tracking-[0.22em] text-saaj-champagne backdrop-blur">
                 LOW STOCK
               </span>
@@ -79,7 +96,21 @@ export function ProductCard({
             >
               {product.name}
             </Link>
-            <p className="mt-2 text-xs text-muted-foreground">{formatBDT(product.price)}</p>
+            {member.isMemberPrice ? (
+              <p className="mt-2 text-xs">
+                <span className="text-muted-foreground line-through">{formatBDT(member.listPrice)}</span>{" "}
+                <span className="text-saaj-champagne">{formatBDT(member.memberPrice)}</span>
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 text-xs text-muted-foreground">{formatBDT(product.price)}</p>
+                {potential.eligible && potential.saves > 0 ? (
+                  <p className="mt-1 text-[0.625rem] tracking-[0.1em] text-saaj-champagne/80">
+                    {formatBDT(potential.memberPrice)} for SAAJ Club
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       </article>

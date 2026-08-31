@@ -32,7 +32,7 @@ export const Route = createFileRoute("/checkout")({
 
 const STEPS = ["Details", "Payment", "Review"] as const;
 
-type PaymentMethod = "cod" | "portpos";
+type PaymentMethod = "cod" | "bkash";
 
 const PAYMENT_OPTIONS: {
   value: PaymentMethod;
@@ -41,7 +41,7 @@ const PAYMENT_OPTIONS: {
   description: string;
 }[] = [
   { value: "cod", icon: Banknote, title: "Cash on Delivery", description: "Pay when your order is delivered." },
-  { value: "portpos", icon: CreditCard, title: "Online Payment", description: "Pay securely online with PortPos." },
+  { value: "bkash", icon: CreditCard, title: "bKash", description: "Pay securely online with bKash." },
 ];
 
 type FormState = {
@@ -123,7 +123,9 @@ function CheckoutPage() {
     enabled: Boolean(user),
   });
 
+  const listSubtotal = lines.reduce((s, l) => s + l.listPrice * l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
+  const clubDiscount = Math.max(0, listSubtotal - subtotal);
   const discount = couponResult?.valid ? couponResult.discount : 0;
   const afterDiscount = Math.max(0, subtotal - discount);
   const shipping = estimateShipping(afterDiscount);
@@ -188,15 +190,16 @@ function CheckoutPage() {
         },
       });
       // Fallback only — the guest access token normally reaches the order
-      // page via the gateway's redirect URL itself (embedded at session
-      // init, preserved through the PortPos round trip) or, for COD, is
+      // page via the bKash callback's own redirect (it stashes the token
+      // server-side at session init and appends it back on to `/order/$id`
+      // once payment is verified — see bkash.callback.ts) or, for COD, is
       // written below before navigating there directly.
       if (typeof window !== "undefined" && result.guestToken) {
         window.sessionStorage.setItem(`saaj.guest_token.${result.reference}`, result.guestToken);
       }
       if (result.gatewayUrl) {
         // Online payment — leave the bag alone until payment is actually
-        // confirmed (order.$id.tsx clears it once PortPos verification
+        // confirmed (order.$id.tsx clears it once bKash verification
         // succeeds); if the customer abandons the gateway they still have
         // their bag to retry with.
         window.location.href = result.gatewayUrl;
@@ -376,8 +379,8 @@ function CheckoutPage() {
                       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
                         {paymentMethod === "cod"
                           ? "Cash on Delivery — pay when your order is delivered."
-                          : paymentMethod === "portpos"
-                            ? "Online Payment — you'll be redirected to PortPos to pay securely."
+                          : paymentMethod === "bkash"
+                            ? "bKash — you'll be redirected to bKash to pay securely."
                             : "No payment method selected yet."}
                       </p>
                     </div>
@@ -443,11 +446,17 @@ function CheckoutPage() {
               <dl className="mt-6 flex flex-col gap-3 text-xs">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Subtotal</dt>
-                  <dd>{formatBDT(subtotal)}</dd>
+                  <dd>{formatBDT(clubDiscount > 0 ? listSubtotal : subtotal)}</dd>
                 </div>
+                {clubDiscount > 0 ? (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">SAAJ Club discount</dt>
+                    <dd className="text-saaj-champagne">−{formatBDT(clubDiscount)}</dd>
+                  </div>
+                ) : null}
                 {discount > 0 ? (
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Discount</dt>
+                    <dt className="text-muted-foreground">Coupon</dt>
                     <dd className="text-saaj-champagne">−{formatBDT(discount)}</dd>
                   </div>
                 ) : null}

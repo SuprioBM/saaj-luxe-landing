@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { initPortPosInvoice } from "@/lib/payments/portpos";
+import { initBkashPayment } from "@/lib/payments/bkash";
 import { checkoutSchema } from "@/lib/schemas";
 import { optionalSupabaseAuth } from "@/lib/mw/optionalAuth";
 import { assertRateLimit } from "@/lib/mw/rateLimit";
@@ -104,7 +104,7 @@ export const initiateCheckout = createServerFn({ method: "POST" })
     // committed real stock for COD lines, see the migration) is the whole
     // transaction — no gateway, no redirect, payment stays unpaid until an
     // admin marks it collected on delivery. Nothing left to wait on, so the
-    // confirmation email goes out now (mirrors what the PortPos webhook
+    // confirmation email goes out now (mirrors what the bKash callback
     // does after a verified payment).
     if (data.paymentMethod === "cod") {
       await sendOrderConfirmationForOrder(supabaseAdmin, order.order_id, guestToken);
@@ -117,18 +117,20 @@ export const initiateCheckout = createServerFn({ method: "POST" })
     }
 
     try {
-      const session = await initPortPosInvoice({
-        orderId: order.order_id,
+      const session = await initBkashPayment({
         reference: order.reference,
         amount: order.total,
         customer: data.customer,
-        address: data.shippingAddress,
-        guestToken: guestToken ?? undefined,
       });
 
+      // guest_token here is bKash's replacement for the query-string
+      // round trip PortPos used (embedding `t` in redirect_url/ipn_url):
+      // bKash's callback doesn't reliably preserve a query string we hand
+      // it, so the raw token is stashed on the payment row instead and
+      // read back by the callback route once (see bkash.callback.ts).
       await supabaseAdmin
         .from("payments")
-        .update({ gateway_session_id: session.invoiceId })
+        .update({ gateway_session_id: session.paymentID, guest_token: guestToken })
         .eq("order_id", order.order_id);
 
       return {

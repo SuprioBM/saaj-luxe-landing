@@ -11,6 +11,13 @@ const TITLE = "Sign In — SAAJ";
 const DESCRIPTION = "Access your SAAJ account, orders and saved pieces.";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    // Only accept in-app absolute paths — never an external URL.
+    redirect:
+      typeof search.redirect === "string" && search.redirect.startsWith("/")
+        ? search.redirect
+        : undefined,
+  }),
   head: () => ({
     meta: [
       { title: TITLE },
@@ -29,6 +36,7 @@ const field =
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [mode, setMode] = useState<"in" | "up" | "reset">("in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -37,6 +45,10 @@ function AuthPage() {
   const [awaitingVerification, setAwaitingVerification] = useState(false);
 
   const finish = (user: { role: string } | null) => {
+    if (redirect) {
+      void navigate({ href: redirect });
+      return;
+    }
     void navigate({ to: user?.role === "ADMIN" ? "/admin" : "/account" });
   };
 

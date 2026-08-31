@@ -109,8 +109,13 @@ export function useCart(): { lines: CartLine[]; isLoading: boolean } {
         size: s.size,
         image: p.img || null,
         qty: 0,
+        // Guests are never members — list price only.
         unitPrice: p.price,
+        listPrice: p.price,
         available: s.stock,
+        membersOnly: p.membersOnly ?? false,
+        availableFrom: p.availableFrom ?? null,
+        memberAvailableFrom: p.memberAvailableFrom ?? null,
       });
     }
   }

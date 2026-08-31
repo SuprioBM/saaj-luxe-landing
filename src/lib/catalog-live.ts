@@ -33,13 +33,18 @@ type Row = {
   tags: string[];
   is_new: boolean;
   created_at: string;
+  members_only: boolean;
+  member_discount_eligible: boolean;
+  member_discount_bps: number | null;
+  available_from: string | null;
+  member_available_from: string | null;
   categories: { slug: string } | null;
   product_images: { url: string; position: number; is_primary: boolean }[];
   product_variants: { id: string; size: string; stock: number; reserved: number }[];
 };
 
 const SELECT =
-  "id,slug,name,description,price,discount_price,sku,materials,tags,is_new,created_at,categories:category_id(slug),product_images(url,position,is_primary),product_variants(id,size,stock,reserved)";
+  "id,slug,name,description,price,discount_price,sku,materials,tags,is_new,created_at,members_only,member_discount_eligible,member_discount_bps,available_from,member_available_from,categories:category_id(slug),product_images(url,position,is_primary),product_variants(id,size,stock,reserved)";
 
 function sizeOrder(categorySlug: string) {
   return SIZE_SETS[categorySlug] ?? [];
@@ -80,6 +85,11 @@ function toProduct(row: Row): Product {
     sizes,
     reviews: (base?.reviews ?? []) as Review[],
     pairsWith: base?.pairsWith ?? [],
+    membersOnly: row.members_only,
+    memberDiscountEligible: row.member_discount_eligible,
+    memberDiscountBps: row.member_discount_bps,
+    availableFrom: row.available_from,
+    memberAvailableFrom: row.member_available_from,
   };
 }
 

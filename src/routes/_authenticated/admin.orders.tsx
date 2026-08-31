@@ -125,7 +125,7 @@ function AdminOrders() {
                       {o.isGuest ? "GUEST" : "REGISTERED"}
                     </span>
                     <span className="ml-3 text-[0.5625rem] tracking-[0.2em] text-muted-foreground">
-                      {o.paymentMethod === "cod" ? "COD" : "ONLINE (PORTPOS)"}
+                      {o.paymentMethod === "cod" ? "COD" : `ONLINE (${o.paymentMethod.toUpperCase()})`}
                     </span>
                   </p>
                   <p className="mt-1 text-[0.625rem] tracking-[0.22em] text-muted-foreground">

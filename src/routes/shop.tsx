@@ -11,7 +11,13 @@ const TITLE = "Shop All — SAAJ";
 const DESCRIPTION =
   "The full SAAJ collection: shirts, neckchains, rings and bracelets. Filter by category, availability and price.";
 
-type Search = { category?: string; sort?: string; availability?: string; max?: number };
+type Search = {
+  category?: string;
+  sort?: string;
+  availability?: string;
+  max?: number;
+  club?: "all" | "new" | "exclusive" | "early";
+};
 
 export const Route = createFileRoute("/shop")({
   validateSearch: (search: Record<string, unknown>): Search => ({
@@ -19,6 +25,10 @@ export const Route = createFileRoute("/shop")({
     sort: typeof search.sort === "string" ? search.sort : "newest",
     availability: typeof search.availability === "string" ? search.availability : "all",
     max: Number(search.max) || 0,
+    club:
+      search.club === "new" || search.club === "exclusive" || search.club === "early"
+        ? search.club
+        : "all",
   }),
   head: () => ({
     meta: [
@@ -38,13 +48,27 @@ const SORTS = [
   { id: "name", label: "A–Z" },
 ];
 
+const CLUB_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "new", label: "New" },
+  { id: "exclusive", label: "✦ Club Exclusive" },
+  { id: "early", label: "Early Access" },
+] as const;
+
 function ShopPage() {
-  const { category = "all", sort = "newest", availability = "all", max = 0 } = Route.useSearch();
+  const {
+    category = "all",
+    sort = "newest",
+    availability = "all",
+    max = 0,
+    club = "all",
+  } = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });
   const { data: allProducts = [] } = useProducts();
   const { data: categories = [] } = useCategories();
   const priceMax = allProducts.length ? Math.max(...allProducts.map((p) => p.price)) : 0;
   const cap = max > 0 ? max : priceMax;
+  const now = Date.now();
 
   const set = (patch: Partial<Search>) =>
     navigate({ search: (prev: Search) => ({ ...prev, ...patch }) });
@@ -54,6 +78,13 @@ function ShopPage() {
     .filter((p) => {
       if (availability === "in") return totalStock(p) > 0;
       if (availability === "out") return totalStock(p) <= 0;
+      return true;
+    })
+    .filter((p) => {
+      if (club === "new") return Boolean(p.isNew);
+      if (club === "exclusive") return Boolean(p.membersOnly);
+      if (club === "early")
+        return Boolean(p.availableFrom && new Date(p.availableFrom).getTime() > now);
       return true;
     });
 
@@ -95,6 +126,20 @@ function ShopPage() {
                 onClick={() => set({ category: c.slug })}
               >
                 {c.title}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="eyebrow mr-2">SAAJ Club</span>
+            {CLUB_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={chip(club === f.id)}
+                onClick={() => set({ club: f.id })}
+              >
+                {f.label}
               </button>
             ))}
           </div>

@@ -54,7 +54,24 @@ type FormState = {
   status: "draft" | "active" | "archived";
   images: { url: string; alt: string | null; isPrimary: boolean }[];
   variants: { size: string; stock: number }[];
+  membersOnly: boolean;
+  memberDiscountEligible: boolean;
+  memberDiscountPercent: number | null;
+  availableFrom: string | null;
+  memberAvailableFrom: string | null;
 };
+
+/** <input type="datetime-local"> wants "YYYY-MM-DDTHH:mm" in local time; the
+ * DB stores ISO/UTC. Convert both ways so the field round-trips. */
+const isoToLocalInput = (iso: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const localInputToIso = (local: string): string | null =>
+  local ? new Date(local).toISOString() : null;
 
 const blank = (): FormState => ({
   name: "",
@@ -70,6 +87,11 @@ const blank = (): FormState => ({
   status: "active",
   images: [],
   variants: DEFAULT_SIZES,
+  membersOnly: false,
+  memberDiscountEligible: true,
+  memberDiscountPercent: null,
+  availableFrom: null,
+  memberAvailableFrom: null,
 });
 
 const fromProduct = (p: AdminProduct): FormState => ({
@@ -86,6 +108,11 @@ const fromProduct = (p: AdminProduct): FormState => ({
   status: p.status,
   images: p.gallery.map((url, i) => ({ url, alt: null, isPrimary: i === 0 })),
   variants: p.variants.length ? p.variants.map((v) => ({ size: v.size, stock: v.stock })) : DEFAULT_SIZES,
+  membersOnly: p.membersOnly,
+  memberDiscountEligible: p.memberDiscountEligible,
+  memberDiscountPercent: p.memberDiscountPercent,
+  availableFrom: p.availableFrom,
+  memberAvailableFrom: p.memberAvailableFrom,
 });
 
 const labelCls = "text-[0.625rem] tracking-[0.22em] text-muted-foreground";
@@ -162,6 +189,9 @@ export function ProductForm({
       name: form.name.trim(),
       slug: form.slug || slugify(form.name),
       sku: form.sku.trim() || `SAAJ-${slugify(form.name).slice(0, 8).toUpperCase()}`,
+      memberDiscountPercent: form.memberDiscountEligible ? form.memberDiscountPercent : null,
+      availableFrom: form.availableFrom,
+      memberAvailableFrom: form.memberAvailableFrom,
     });
   };
 
@@ -432,6 +462,69 @@ export function ProductForm({
               />
               MARK AS NEW
             </label>
+          </div>
+
+          <div className="border-t border-saaj-line pt-8">
+            <p className="text-[0.625rem] tracking-[0.28em] text-saaj-champagne">✦ SAAJ CLUB</p>
+            <div className="mt-5 space-y-5">
+              <label className="flex items-center gap-3 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.membersOnly}
+                  onChange={(e) => set("membersOnly", e.target.checked)}
+                  className="h-3.5 w-3.5 accent-white"
+                />
+                MEMBERS ONLY (CLUB EXCLUSIVE)
+              </label>
+              <label className="flex items-center gap-3 text-[0.625rem] tracking-[0.22em] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.memberDiscountEligible}
+                  onChange={(e) => set("memberDiscountEligible", e.target.checked)}
+                  className="h-3.5 w-3.5 accent-white"
+                />
+                MEMBER DISCOUNT ENABLED
+              </label>
+              {form.memberDiscountEligible ? (
+                <label className="block">
+                  <span className={labelCls}>CUSTOM MEMBER DISCOUNT (%, BLANK = CLUB DEFAULT)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.memberDiscountPercent ?? ""}
+                    onChange={(e) =>
+                      set(
+                        "memberDiscountPercent",
+                        e.target.value === "" ? null : Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+                      )
+                    }
+                    placeholder="e.g. 15"
+                    className={fieldCls}
+                  />
+                </label>
+              ) : null}
+              <div className="grid gap-6 sm:grid-cols-2">
+                <label className="block">
+                  <span className={labelCls}>PUBLIC RELEASE (BLANK = NOW)</span>
+                  <input
+                    type="datetime-local"
+                    value={isoToLocalInput(form.availableFrom)}
+                    onChange={(e) => set("availableFrom", localInputToIso(e.target.value))}
+                    className={`${fieldCls} [color-scheme:dark]`}
+                  />
+                </label>
+                <label className="block">
+                  <span className={labelCls}>MEMBER EARLY ACCESS (BLANK = SAME AS PUBLIC)</span>
+                  <input
+                    type="datetime-local"
+                    value={isoToLocalInput(form.memberAvailableFrom)}
+                    onChange={(e) => set("memberAvailableFrom", localInputToIso(e.target.value))}
+                    className={`${fieldCls} [color-scheme:dark]`}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       </div>

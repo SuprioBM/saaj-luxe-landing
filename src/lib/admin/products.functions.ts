@@ -26,6 +26,11 @@ export type AdminProduct = {
   isNew: boolean;
   status: "draft" | "active" | "archived";
   variants: { id: string; size: string; stock: number; reserved: number }[];
+  membersOnly: boolean;
+  memberDiscountEligible: boolean;
+  memberDiscountPercent: number | null;
+  availableFrom: string | null;
+  memberAvailableFrom: string | null;
 };
 
 type ProductRow = {
@@ -40,13 +45,18 @@ type ProductRow = {
   tags: string[];
   is_new: boolean;
   status: "draft" | "active" | "archived";
+  members_only: boolean;
+  member_discount_eligible: boolean;
+  member_discount_bps: number | null;
+  available_from: string | null;
+  member_available_from: string | null;
   categories: { slug: string } | null;
   product_images: { url: string; position: number; is_primary: boolean }[];
   product_variants: { id: string; size: string; stock: number; reserved: number }[];
 };
 
 const SELECT =
-  "id,slug,name,description,price,discount_price,sku,materials,tags,is_new,status,categories:category_id(slug),product_images(url,position,is_primary),product_variants(id,size,stock,reserved)";
+  "id,slug,name,description,price,discount_price,sku,materials,tags,is_new,status,members_only,member_discount_eligible,member_discount_bps,available_from,member_available_from,categories:category_id(slug),product_images(url,position,is_primary),product_variants(id,size,stock,reserved)";
 
 function toAdminProduct(row: ProductRow): AdminProduct {
   const images = [...row.product_images].sort(
@@ -68,8 +78,17 @@ function toAdminProduct(row: ProductRow): AdminProduct {
     isNew: row.is_new,
     status: row.status,
     variants: row.product_variants,
+    membersOnly: row.members_only,
+    memberDiscountEligible: row.member_discount_eligible,
+    memberDiscountPercent:
+      row.member_discount_bps === null ? null : row.member_discount_bps / 100,
+    availableFrom: row.available_from,
+    memberAvailableFrom: row.member_available_from,
   };
 }
+
+const bpsFromPercent = (pct: number | null | undefined): number | null =>
+  pct === null || pct === undefined ? null : Math.round(pct * 100);
 
 export const adminListProducts = createServerFn({ method: "POST" })
   .middleware([requireStaff])
@@ -110,6 +129,11 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
         tags: data.tags,
         is_new: data.isNew,
         status: data.status,
+        members_only: data.membersOnly,
+        member_discount_eligible: data.memberDiscountEligible,
+        member_discount_bps: bpsFromPercent(data.memberDiscountPercent),
+        available_from: data.availableFrom ?? null,
+        member_available_from: data.memberAvailableFrom ?? null,
       })
       .select("id")
       .single();
@@ -145,7 +169,19 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
   .middleware([requireStaff])
   .validator(adminProductUpdateSchema)
   .handler(async ({ data, context }): Promise<AdminProduct> => {
-    const { id, images, variants, categorySlug, discountPrice, ...rest } = data;
+    const {
+      id,
+      images,
+      variants,
+      categorySlug,
+      discountPrice,
+      membersOnly,
+      memberDiscountEligible,
+      memberDiscountPercent,
+      availableFrom,
+      memberAvailableFrom,
+      ...rest
+    } = data;
 
     const patch: Database["public"]["Tables"]["products"]["Update"] = {};
     if (rest.name !== undefined) patch.name = rest.name;
@@ -158,6 +194,12 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     if (rest.tags !== undefined) patch.tags = rest.tags;
     if (rest.isNew !== undefined) patch.is_new = rest.isNew;
     if (rest.status !== undefined) patch.status = rest.status;
+    if (membersOnly !== undefined) patch.members_only = membersOnly;
+    if (memberDiscountEligible !== undefined) patch.member_discount_eligible = memberDiscountEligible;
+    if (memberDiscountPercent !== undefined)
+      patch.member_discount_bps = bpsFromPercent(memberDiscountPercent);
+    if (availableFrom !== undefined) patch.available_from = availableFrom;
+    if (memberAvailableFrom !== undefined) patch.member_available_from = memberAvailableFrom;
     if (categorySlug !== undefined) patch.category_id = await resolveCategoryId(context.supabase, categorySlug);
 
     if (Object.keys(patch).length) {

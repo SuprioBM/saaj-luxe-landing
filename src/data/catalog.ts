@@ -63,6 +63,15 @@ export type Product = {
   sizes: SizeStock[];
   reviews: Review[];
   pairsWith: string[];
+  /* ---- SAAJ Club (DB-backed; defaulted for the static catalog) ---- */
+  membersOnly?: boolean;
+  memberDiscountEligible?: boolean;
+  /** per-product override in basis points; null/undefined = use the club default */
+  memberDiscountBps?: number | null;
+  /** ISO string; undefined = available to the public now */
+  availableFrom?: string | null;
+  /** ISO string; undefined = members get the same date as the public */
+  memberAvailableFrom?: string | null;
 };
 
 export const CATEGORIES: Category[] = [

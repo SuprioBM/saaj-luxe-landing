@@ -212,3 +212,184 @@ not a redesign of checkout/commerce.
   touched file shows zero rule violations (581 flagged lines are 100% pre-existing CRLF vs.
   prettier's LF expectation, the same repo-wide non-issue the 2026-08-15 session already
   documented).
+
+## Phase 13 — PortPos → bKash (2026-08-22)
+
+Payment-provider swap only — checkout/order/COD business logic untouched. Reason: bKash is the
+gateway SAAJ actually has merchant access to.
+
+- [x] Migrations `20260822120000_bkash_add_payment_method_enum_value.sql` (adds `'bkash'` to the
+  `payment_method` enum, alone, in its own transaction — Postgres won't let a freshly-added enum
+  label be used in the same transaction it was added in on some versions) and
+  `20260822130000_bkash_payment_functions.sql` (`place_order` v3 now validates/defaults to
+  `'cod' | 'bkash'`; `orders.payment_method`/`payments.provider` defaults moved to `'bkash'`; new
+  nullable `payments.guest_token` column — see below). `'portpos'` deliberately stays in the enum
+  and is never touched — historical orders keep reading back correctly, `cancel_order` /
+  `finalize_order_paid` / `mark_cod_collected` needed no changes at all (none of them hardcode a
+  provider string).
+- [x] `src/lib/payments/bkash.ts` (replaces `portpos.ts`): bKash's Tokenized Checkout (URL based)
+  API, v1.2.0-beta — grant/refresh an id_token (in-memory cache, best-effort across warm
+  invocations), create a payment (`bkashURL` to redirect to), and authoritative verification via
+  `payment/status` (query-first) falling back to `execute` — bKash allows exactly one `execute`
+  call per payment, so a retried/refreshed callback hit must check current status before ever
+  attempting to execute again. Endpoint paths/payload shapes cross-checked against a maintained
+  open-source TS client (bKash has no public sandbox docs page) — **flagged for the operator to
+  re-verify against bKash's own onboarding docs before going live.**
+- [x] `src/routes/api/public/payments/bkash.callback.ts` (replaces `portpos.$action.ts`): single
+  browser-redirect callback (bKash has no separate server-to-server IPN the way PortPos did).
+  Finds the order via `payments.gateway_session_id = paymentID`, never via anything threaded
+  through the callback URL's query string — bKash's documented behaviour is to simply append
+  `?paymentID=&status=` to whatever `callbackURL` we hand it, with no confirmed guarantee that
+  merges correctly with a URL that already has a `?query` of its own, so `callbackURL` is now
+  handed to bKash bare. New `payments.guest_token` column carries the guest tracking token across
+  that same round trip instead (written at payment-creation time, read + cleared once here) —
+  replaces the `?t=` query param PortPos threaded through `redirect_url`/`ipn_url`. Same
+  idempotency/never-trust-the-request shape as the PortPos handler: a `paid` order short-circuits,
+  a non-`success` `status` hint only releases the reservation, and the *paid* decision only ever
+  comes from bKash's own query/execute response.
+- [x] Checkout UI (`checkout.tsx`): payment method selector now offers bKash instead of Online
+  Payment/PortPos; `paymentMethodSchema` (`schemas.ts`) is `'cod' | 'bkash'`. Admin UI
+  (`admin.orders.tsx`): online-payment badge now reads the order's actual `payment_method`
+  (`ONLINE (BKASH)` / `ONLINE (PORTPOS)` for historical orders) instead of a hardcoded PortPos
+  label.
+- [x] Cleanup: deleted `src/lib/payments/portpos.ts` and
+  `src/routes/api/public/payments/portpos.$action.ts`; `.env.example` PORTPOS_APP_KEY/
+  PORTPOS_SECRET/PORTPOS_MODE → BKASH_APP_KEY/BKASH_APP_SECRET/BKASH_USERNAME/BKASH_PASSWORD/
+  BKASH_MODE/BKASH_BASE_URL; `privacy.tsx` payments copy updated. Repo-wide grep confirms no
+  remaining `portpos`/PortPos references outside generated files (`routeTree.gen.ts`,
+  regenerated), historical migrations, and this log's own earlier phase-12 entry (left as-is —
+  it's a record of what happened then, not current state).
+
+## Phase 14 — SAAJ Club membership (2026-08-31)
+
+Additive enhancement — normal shopping, auth, cart, checkout, the bKash gateway integration
+(`src/lib/payments/bkash.ts`, `bkash.callback.ts`) and its finalize/cancel RPC semantics are
+untouched.
+
+### Phase 14.0 — baseline
+- [x] The two pending bKash migrations (`20260822120000`, `20260822130000`) were still
+  **local-only** — remote was on `payment_method = (cod, portpos)` and had no
+  `payments.guest_token`, so online checkout was broken against the code already in the tree.
+  Pushed them as the membership baseline (they are committed, intended, and prerequisite).
+
+### Phase 14.1 — data model (`supabase db push`, applied + smoke-tested live, then rolled back)
+- [x] `20260831140000_membership_foundation.sql`: enums `membership_tier` (`NONE|CLUB`),
+  `membership_status` (`ACTIVE|EXPIRED|CANCELLED|PAYMENT_FAILED`), `reward_ledger_kind`,
+  `order_kind`. `membership_config` (singleton: ৳50 price, 1000 bps discount, 1 pt/৳100,
+  100 birthday pts, 0 grace days — all backend-authoritative, public-readable). `memberships`
+  (partial unique `(user_id,tier) where status='ACTIVE'` → no overlapping periods). `reward_ledger`
+  (append-only; partial unique idempotency indexes for earn-once / reverse-once / birthday-once).
+  Product cols `members_only`, `member_discount_eligible`, `member_discount_bps`,
+  `available_from`, `member_available_from` (all nullable/defaulted — existing products
+  unchanged). `profiles.date_of_birth`. `security.active_membership()` / `is_active_member()`
+  (SECURITY DEFINER + INVOKER wrapper, honours grace period) — the authoritative "is this
+  customer a member?" read. `product_member_discount_bps()`, `expire_memberships()`.
+- [x] `20260831140100_membership_order_integration.sql`: `orders` snapshot cols (`order_kind`,
+  `membership_id`, `membership_tier`, `membership_discount`, `reward_points_earned` — spec 21).
+  `place_order` **v4** (identical 8-arg signature): server-side member pricing, `MEMBERS_ONLY`
+  and `NOT_YET_AVAILABLE` rejection, projected reward points — coupon/shipping/stock logic
+  byte-for-byte unchanged. `place_membership_order()` (marker order + payment row, blocks
+  `ALREADY_MEMBER` / `MEMBERSHIP_ORDER_PENDING`). `security.activate_membership_from_order()` +
+  `after update of status on orders` trigger `membership_order_paid` — activation happens only
+  when the order is independently marked `paid` (the existing bKash callback's
+  `finalize_order_paid` UPDATE fires it; gateway code never touched). Idempotent (order.membership_id
+  guard). Renewal extends from current period end, not from now. `order_reward_points` trigger:
+  award once on first `paid|shipped|delivered`, reverse once on `cancelled|refunded`.
+  `cancel_membership()` (default: `auto_renew=false` + keep benefits to period end).
+  `admin_set_membership()`, `admin_adjust_reward_points()` (reason required, audited),
+  `redeem_reward_points()`, `award_birthday_reward()` (birthday-month + idempotent).
+- [x] Hand-patched `src/integrations/supabase/types.ts` (3 tables, order/product/profile cols,
+  10 RPC sigs, 4 enums) — `tsc --noEmit` clean.
+- [x] Live smoke test (transaction, rolled back): `place_membership_order` → `finalize_order_paid`
+  → trigger → `memberships` row ACTIVE 1-month period, order linked; finalize/activate retries
+  keep count = 1; `ALREADY_MEMBER` enforced; guest blocked from a `members_only` product with
+  `MEMBERS_ONLY`.
+
+### Phase 14.2 — backend server functions (tsc clean)
+- [x] `membership.functions.ts` — `getMembershipConfig` (public), `getMyMembership` (status +
+  reward balance + benefits + best-effort birthday reward), `joinMembership` (→
+  `place_membership_order` RPC → `initBkashPayment` **imported unmodified** → stash
+  `gateway_session_id`; rolls the marker order back on gateway failure), `cancelMembership`.
+- [x] `rewards.functions.ts` — `getMyRewards` (balance = `sum(points)` + last-50 ledger).
+- [x] `membership-pricing.ts` — pure display/estimate helpers mirroring `place_order`'s math
+  (`resolveMemberDiscountBps`, `memberUnitPrice`, `projectedPoints`, `canPurchase`,
+  `releaseState`). 19 unit tests (`membership-pricing.test.ts`).
+- [x] `cart.functions.ts` — `CartLine` now carries `listPrice` + effective `unitPrice` (member
+  price for active members), `membersOnly`, release dates; friendly early stop for
+  members-only / unreleased pieces (DB still the real gate). `cart.ts` guest path unchanged
+  (guests are never members).
+- [x] `orders.functions.ts` — `OrderDetail` gains `orderKind` / `membershipTier` /
+  `membershipDiscount` / `rewardPointsEarned` (spec-21 snapshots); My Orders filtered to
+  `order_kind='product'` so membership payments don't clutter the orders tab.
+- [x] `catalog-live.ts` + `catalog.ts` — product member columns fetched + mapped.
+- [x] `admin/members.functions.ts` — `adminListMembers`, `adminGetMemberDetail` (periods +
+  ledger + membership payments), `adminSetMembership` / `adminAdjustRewardPoints` (reason
+  required, delegate to audited RPCs), `adminGet/UpdateClubConfig`. `admin/dashboard.functions.ts`
+  gains `activeMembers`.
+- [x] `admin/products.functions.ts` + `schemas.ts` — product CRUD threads
+  `membersOnly` / `memberDiscountEligible` / `memberDiscountPercent` / `availableFrom` /
+  `memberAvailableFrom`.
+- [x] `auth.ts` — profile now carries `dateOfBirth` (self-update via RLS).
+
+### Phase 14.3 — storefront
+- [x] `routes/club.tsx` — dedicated SAAJ Club page ("FOR THE FEW.", ৳50/month from config,
+  benefits grid, CTA state machine: guest → `/auth?redirect=/club`; member → confirm-phone
+  modal → bKash; active → MANAGE; cancelled-active / expired variants).
+- [x] `SiteHeader` — `✦ SAAJ Club` desktop nav + mobile drawer entry. `index.tsx` — subtle
+  home band. `shop.tsx` — `SAAJ CLUB` filter row (All / New / ✦ Club Exclusive / Early Access).
+- [x] `ProductCard` / `product.$slug` / `QuickViewModal` — CLUB EXCLUSIVE + EARLY ACCESS
+  badges, "YOUR CLUB PRICE" (member) / "৳X for SAAJ Club" (non-member), members-only &
+  coming-soon gates that replace Add-to-bag with a JOIN CTA, contextual "WANT MORE?" box for
+  logged-in non-members.
+- [x] `cart.tsx` / `checkout.tsx` — per-line list/member price, "SAAJ Club discount" summary
+  line, join nudge for non-members. `order.$id.tsx` — membership-order confirmation
+  ("Welcome to the club"), reward-points-earned line on product orders.
+- [x] `auth.tsx` — `?redirect=` (in-app paths only) so the guest → join flow returns to `/club`.
+- [x] `account.profile.tsx` — date-of-birth field (for the birthday reward).
+
+### Phase 14.4 — account dashboard
+- [x] `routes/_authenticated/account.membership.tsx` — active/cancelled/expired states, benefits
+  grid, reward balance + ledger, cancel modal (auto-renewal off, benefits to period end),
+  renew/rejoin flow. `AccountShell` gains the "SAAJ Club" tab.
+
+### Phase 14.5 — admin
+- [x] `routes/_authenticated/admin.members.tsx` — members list + search, per-member drawer
+  (manual status change, point adjustment — both reason-gated & audited, membership periods,
+  membership payments, reward ledger), club-config editor (price / discount % / points rate /
+  birthday points / grace days / rewards on-off). `AdminShell` nav + dashboard metric.
+- [x] `ProductForm` — SAAJ Club section (members only, member discount enabled + custom %,
+  public release + member early-access datetimes).
+
+### Phase 14.6 — AI (read-only, agent not built)
+- [x] `lib/ai/membership-tools.functions.ts` — `getCustomerMembership`, `getCustomerRewards`,
+  `getMembershipBenefits`, `getExclusiveProducts` as authoritative read-only server fns for a
+  future SAAJ AI agent. The agent must call these, never infer membership from being logged in
+  or from chat history; it can READ only — no membership/reward/discount/payment writes.
+
+### Phase 14.7 — verification
+- [x] `bunx tsc --noEmit` clean · `bunx vitest run` 45/45 · `bun run build` succeeds (client +
+  SSR + Worker; nodemailer confirmed server-only, absent from `.output/public`).
+- [x] Live integration suite (scratchpad script, all in rolled-back transactions — **no test
+  data persisted**): 44/44 assertions — membership lifecycle (join → verified payment →
+  ACTIVE → cancel keeps benefits → expire), renewal extends the single row (no overlap),
+  member pricing (10% / custom % / excluded product / expired-loses-it / snapshot on
+  order_items + orders), exclusive + early-access rejection for the wrong shopper,
+  reward points (projected → awarded on paid → not re-awarded on ship → reversed on cancel →
+  net zero → audited admin adjustment), privileged RPCs not `authenticated`-executable,
+  membership never activates without a verified payment.
+- [x] Dev-server smoke: `/club`, `/shop` (club filters + "৳X for SAAJ Club" on cards),
+  `/product/$slug` (member price line), home band, `/account/membership` → `/auth` redirect
+  when signed out — all render, zero console errors.
+
+### Migrations (applied to live DB via `supabase db push`)
+- `20260822120000` / `20260822130000` — the two **pre-existing, un-pushed bKash migrations**
+  (remote was still on `payment_method=(cod,portpos)` with no `payments.guest_token`; online
+  checkout was broken against the code already in the tree). Applied as the membership baseline.
+- `20260831140000` — membership foundation · `20260831140100` — order/checkout/reward
+  integration · `20260831140200` — manual-renewal relaxation · `20260831140300` — member price
+  rounds to the whole taka (matches `formatBDT` + the client helper).
+
+### Not touched (per the brief)
+- `src/lib/payments/bkash.ts`, `src/routes/api/public/payments/bkash.callback.ts`, and the
+  `finalize_order_paid` / `cancel_order` semantics — membership activation rides the existing
+  status→`paid` UPDATE via the `membership_order_paid` trigger.

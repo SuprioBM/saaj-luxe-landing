@@ -19,6 +19,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LookbookRouteImport } from './routes/lookbook'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ClubRouteImport } from './routes/club'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -33,10 +34,12 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin.products'
 import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenticated/admin.orders'
+import { Route as AuthenticatedAdminMembersRouteImport } from './routes/_authenticated/admin.members'
 import { Route as AuthenticatedAdminCustomersRouteImport } from './routes/_authenticated/admin.customers'
 import { Route as AuthenticatedAccountProfileRouteImport } from './routes/_authenticated/account.profile'
 import { Route as AuthenticatedAccountOrdersRouteImport } from './routes/_authenticated/account.orders'
-import { Route as ApiPublicPaymentsPortposActionRouteImport } from './routes/api/public/payments/portpos.$action'
+import { Route as AuthenticatedAccountMembershipRouteImport } from './routes/_authenticated/account.membership'
+import { Route as ApiPublicPaymentsBkashCallbackRouteImport } from './routes/api/public/payments/bkash.callback'
 
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
@@ -86,6 +89,11 @@ const LookbookRoute = LookbookRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClubRoute = ClubRouteImport.update({
+  id: '/club',
+  path: '/club',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -160,6 +168,12 @@ const AuthenticatedAdminOrdersRoute =
     path: '/orders',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminMembersRoute =
+  AuthenticatedAdminMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCustomersRoute =
   AuthenticatedAdminCustomersRouteImport.update({
     id: '/customers',
@@ -178,10 +192,16 @@ const AuthenticatedAccountOrdersRoute =
     path: '/account/orders',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicPaymentsPortposActionRoute =
-  ApiPublicPaymentsPortposActionRouteImport.update({
-    id: '/api/public/payments/portpos/$action',
-    path: '/api/public/payments/portpos/$action',
+const AuthenticatedAccountMembershipRoute =
+  AuthenticatedAccountMembershipRouteImport.update({
+    id: '/account/membership',
+    path: '/account/membership',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiPublicPaymentsBkashCallbackRoute =
+  ApiPublicPaymentsBkashCallbackRouteImport.update({
+    id: '/api/public/payments/bkash/callback',
+    path: '/api/public/payments/bkash/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -191,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/club': typeof ClubRoute
   '/contact': typeof ContactRoute
   '/lookbook': typeof LookbookRoute
   '/privacy': typeof PrivacyRoute
@@ -205,14 +226,16 @@ export interface FileRoutesByFullPath {
   '/category/$slug': typeof CategorySlugRoute
   '/order/$id': typeof OrderIdRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/account/membership': typeof AuthenticatedAccountMembershipRoute
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/profile': typeof AuthenticatedAccountProfileRoute
   '/admin/customers': typeof AuthenticatedAdminCustomersRoute
+  '/admin/members': typeof AuthenticatedAdminMembersRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/account/': typeof AuthenticatedAccountIndexRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
-  '/api/public/payments/portpos/$action': typeof ApiPublicPaymentsPortposActionRoute
+  '/api/public/payments/bkash/callback': typeof ApiPublicPaymentsBkashCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -220,6 +243,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/club': typeof ClubRoute
   '/contact': typeof ContactRoute
   '/lookbook': typeof LookbookRoute
   '/privacy': typeof PrivacyRoute
@@ -233,14 +257,16 @@ export interface FileRoutesByTo {
   '/category/$slug': typeof CategorySlugRoute
   '/order/$id': typeof OrderIdRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/account/membership': typeof AuthenticatedAccountMembershipRoute
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/profile': typeof AuthenticatedAccountProfileRoute
   '/admin/customers': typeof AuthenticatedAdminCustomersRoute
+  '/admin/members': typeof AuthenticatedAdminMembersRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/account': typeof AuthenticatedAccountIndexRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
-  '/api/public/payments/portpos/$action': typeof ApiPublicPaymentsPortposActionRoute
+  '/api/public/payments/bkash/callback': typeof ApiPublicPaymentsBkashCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -250,6 +276,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/club': typeof ClubRoute
   '/contact': typeof ContactRoute
   '/lookbook': typeof LookbookRoute
   '/privacy': typeof PrivacyRoute
@@ -264,14 +291,16 @@ export interface FileRoutesById {
   '/category/$slug': typeof CategorySlugRoute
   '/order/$id': typeof OrderIdRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/_authenticated/account/membership': typeof AuthenticatedAccountMembershipRoute
   '/_authenticated/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/_authenticated/account/profile': typeof AuthenticatedAccountProfileRoute
   '/_authenticated/admin/customers': typeof AuthenticatedAdminCustomersRoute
+  '/_authenticated/admin/members': typeof AuthenticatedAdminMembersRoute
   '/_authenticated/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/account/': typeof AuthenticatedAccountIndexRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
-  '/api/public/payments/portpos/$action': typeof ApiPublicPaymentsPortposActionRoute
+  '/api/public/payments/bkash/callback': typeof ApiPublicPaymentsBkashCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -281,6 +310,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/checkout'
+    | '/club'
     | '/contact'
     | '/lookbook'
     | '/privacy'
@@ -295,14 +325,16 @@ export interface FileRouteTypes {
     | '/category/$slug'
     | '/order/$id'
     | '/product/$slug'
+    | '/account/membership'
     | '/account/orders'
     | '/account/profile'
     | '/admin/customers'
+    | '/admin/members'
     | '/admin/orders'
     | '/admin/products'
     | '/account/'
     | '/admin/'
-    | '/api/public/payments/portpos/$action'
+    | '/api/public/payments/bkash/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -310,6 +342,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/checkout'
+    | '/club'
     | '/contact'
     | '/lookbook'
     | '/privacy'
@@ -323,14 +356,16 @@ export interface FileRouteTypes {
     | '/category/$slug'
     | '/order/$id'
     | '/product/$slug'
+    | '/account/membership'
     | '/account/orders'
     | '/account/profile'
     | '/admin/customers'
+    | '/admin/members'
     | '/admin/orders'
     | '/admin/products'
     | '/account'
     | '/admin'
-    | '/api/public/payments/portpos/$action'
+    | '/api/public/payments/bkash/callback'
   id:
     | '__root__'
     | '/'
@@ -339,6 +374,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/checkout'
+    | '/club'
     | '/contact'
     | '/lookbook'
     | '/privacy'
@@ -353,14 +389,16 @@ export interface FileRouteTypes {
     | '/category/$slug'
     | '/order/$id'
     | '/product/$slug'
+    | '/_authenticated/account/membership'
     | '/_authenticated/account/orders'
     | '/_authenticated/account/profile'
     | '/_authenticated/admin/customers'
+    | '/_authenticated/admin/members'
     | '/_authenticated/admin/orders'
     | '/_authenticated/admin/products'
     | '/_authenticated/account/'
     | '/_authenticated/admin/'
-    | '/api/public/payments/portpos/$action'
+    | '/api/public/payments/bkash/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -370,6 +408,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
+  ClubRoute: typeof ClubRoute
   ContactRoute: typeof ContactRoute
   LookbookRoute: typeof LookbookRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -383,7 +422,7 @@ export interface RootRouteChildren {
   CategorySlugRoute: typeof CategorySlugRoute
   OrderIdRoute: typeof OrderIdRoute
   ProductSlugRoute: typeof ProductSlugRoute
-  ApiPublicPaymentsPortposActionRoute: typeof ApiPublicPaymentsPortposActionRoute
+  ApiPublicPaymentsBkashCallbackRoute: typeof ApiPublicPaymentsBkashCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -456,6 +495,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/club': {
+      id: '/club'
+      path: '/club'
+      fullPath: '/club'
+      preLoaderRoute: typeof ClubRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -556,6 +602,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminOrdersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/members': {
+      id: '/_authenticated/admin/members'
+      path: '/members'
+      fullPath: '/admin/members'
+      preLoaderRoute: typeof AuthenticatedAdminMembersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/customers': {
       id: '/_authenticated/admin/customers'
       path: '/customers'
@@ -577,11 +630,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountOrdersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/payments/portpos/$action': {
-      id: '/api/public/payments/portpos/$action'
-      path: '/api/public/payments/portpos/$action'
-      fullPath: '/api/public/payments/portpos/$action'
-      preLoaderRoute: typeof ApiPublicPaymentsPortposActionRouteImport
+    '/_authenticated/account/membership': {
+      id: '/_authenticated/account/membership'
+      path: '/account/membership'
+      fullPath: '/account/membership'
+      preLoaderRoute: typeof AuthenticatedAccountMembershipRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/payments/bkash/callback': {
+      id: '/api/public/payments/bkash/callback'
+      path: '/api/public/payments/bkash/callback'
+      fullPath: '/api/public/payments/bkash/callback'
+      preLoaderRoute: typeof ApiPublicPaymentsBkashCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -589,6 +649,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminCustomersRoute: typeof AuthenticatedAdminCustomersRoute
+  AuthenticatedAdminMembersRoute: typeof AuthenticatedAdminMembersRoute
   AuthenticatedAdminOrdersRoute: typeof AuthenticatedAdminOrdersRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -596,6 +657,7 @@ interface AuthenticatedAdminRouteChildren {
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminCustomersRoute: AuthenticatedAdminCustomersRoute,
+  AuthenticatedAdminMembersRoute: AuthenticatedAdminMembersRoute,
   AuthenticatedAdminOrdersRoute: AuthenticatedAdminOrdersRoute,
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
@@ -606,6 +668,7 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedAccountMembershipRoute: typeof AuthenticatedAccountMembershipRoute
   AuthenticatedAccountOrdersRoute: typeof AuthenticatedAccountOrdersRoute
   AuthenticatedAccountProfileRoute: typeof AuthenticatedAccountProfileRoute
   AuthenticatedAccountIndexRoute: typeof AuthenticatedAccountIndexRoute
@@ -613,6 +676,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedAccountMembershipRoute: AuthenticatedAccountMembershipRoute,
   AuthenticatedAccountOrdersRoute: AuthenticatedAccountOrdersRoute,
   AuthenticatedAccountProfileRoute: AuthenticatedAccountProfileRoute,
   AuthenticatedAccountIndexRoute: AuthenticatedAccountIndexRoute,
@@ -628,6 +692,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
+  ClubRoute: ClubRoute,
   ContactRoute: ContactRoute,
   LookbookRoute: LookbookRoute,
   PrivacyRoute: PrivacyRoute,
@@ -641,7 +706,7 @@ const rootRouteChildren: RootRouteChildren = {
   CategorySlugRoute: CategorySlugRoute,
   OrderIdRoute: OrderIdRoute,
   ProductSlugRoute: ProductSlugRoute,
-  ApiPublicPaymentsPortposActionRoute: ApiPublicPaymentsPortposActionRoute,
+  ApiPublicPaymentsBkashCallbackRoute: ApiPublicPaymentsBkashCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

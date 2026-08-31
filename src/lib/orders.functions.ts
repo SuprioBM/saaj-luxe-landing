@@ -53,6 +53,13 @@ export type OrderDetail = {
   canCancel: boolean;
   isGuest: boolean;
   items: OrderItem[];
+  /** 'product' | 'membership' — a membership order has no items and its own
+   * confirmation UI. */
+  orderKind: string;
+  membershipTier: string;
+  /** BDT saved via the member price at purchase time (snapshot — never shifts). */
+  membershipDiscount: number;
+  rewardPointsEarned: number;
 };
 
 type OrderItemRow = {
@@ -66,7 +73,7 @@ type OrderItemRow = {
 };
 
 const ORDER_DETAIL_SELECT =
-  "id,reference,status,placed_at,total,subtotal,discount,shipping,tax,customer_name,customer_email,customer_phone,shipping_address,user_id,payment_method,courier,shipment_tracking_number,guest_access_token_hash,order_items(id,product_name,product_slug,size,image_url,qty,unit_price),payments(status)";
+  "id,reference,status,placed_at,total,subtotal,discount,shipping,tax,customer_name,customer_email,customer_phone,shipping_address,user_id,payment_method,courier,shipment_tracking_number,guest_access_token_hash,order_kind,membership_tier,membership_discount,reward_points_earned,order_items(id,product_name,product_slug,size,image_url,qty,unit_price),payments(status)";
 
 function toDetail(order: {
   id: string;
@@ -86,6 +93,10 @@ function toDetail(order: {
   payment_method: string;
   courier: string | null;
   shipment_tracking_number: string | null;
+  order_kind: string;
+  membership_tier: string;
+  membership_discount: number | string;
+  reward_points_earned: number;
   order_items: OrderItemRow[];
   payments: { status: string }[];
 }): OrderDetail {
@@ -109,6 +120,10 @@ function toDetail(order: {
     shipmentTrackingNumber: order.shipment_tracking_number,
     canCancel: (CANCELLABLE_STATUSES as readonly string[]).includes(order.status),
     isGuest: !order.user_id,
+    orderKind: order.order_kind,
+    membershipTier: order.membership_tier,
+    membershipDiscount: Number(order.membership_discount),
+    rewardPointsEarned: order.reward_points_earned,
     items: (order.order_items ?? []).map((i) => ({
       id: i.id,
       name: i.product_name,
@@ -128,6 +143,7 @@ export const listMyOrders = createServerFn({ method: "POST" })
       .from("orders")
       .select("id,reference,status,placed_at,total,order_items(id)")
       .eq("user_id", context.userId)
+      .eq("order_kind", "product")
       .order("placed_at", { ascending: false });
     if (error) throw error;
     return (data as unknown as { id: string; reference: string; status: string; placed_at: string; total: number; order_items: { id: string }[] }[]).map(
@@ -149,6 +165,7 @@ export const listMyOrdersDetailed = createServerFn({ method: "POST" })
       .from("orders")
       .select(ORDER_DETAIL_SELECT)
       .eq("user_id", context.userId)
+      .eq("order_kind", "product")
       .order("placed_at", { ascending: false });
     if (error) throw error;
     return (data as unknown as Parameters<typeof toDetail>[0][]).map(toDetail);

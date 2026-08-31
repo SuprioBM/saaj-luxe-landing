@@ -388,9 +388,14 @@ export type Database = {
           discount: number
           guest_access_token_hash: string | null
           id: string
+          membership_discount: number
+          membership_id: string | null
+          membership_tier: Database["public"]["Enums"]["membership_tier"]
+          order_kind: Database["public"]["Enums"]["order_kind"]
           payment_method: Database["public"]["Enums"]["payment_method"]
           placed_at: string
           reference: string
+          reward_points_earned: number
           shipment_tracking_number: string | null
           shipping: number
           shipping_address: Json
@@ -411,9 +416,14 @@ export type Database = {
           discount?: number
           guest_access_token_hash?: string | null
           id?: string
+          membership_discount?: number
+          membership_id?: string | null
+          membership_tier?: Database["public"]["Enums"]["membership_tier"]
+          order_kind?: Database["public"]["Enums"]["order_kind"]
           payment_method?: Database["public"]["Enums"]["payment_method"]
           placed_at?: string
           reference: string
+          reward_points_earned?: number
           shipment_tracking_number?: string | null
           shipping?: number
           shipping_address: Json
@@ -434,9 +444,14 @@ export type Database = {
           discount?: number
           guest_access_token_hash?: string | null
           id?: string
+          membership_discount?: number
+          membership_id?: string | null
+          membership_tier?: Database["public"]["Enums"]["membership_tier"]
+          order_kind?: Database["public"]["Enums"]["order_kind"]
           payment_method?: Database["public"]["Enums"]["payment_method"]
           placed_at?: string
           reference?: string
+          reward_points_earned?: number
           shipment_tracking_number?: string | null
           shipping?: number
           shipping_address?: Json
@@ -455,6 +470,13 @@ export type Database = {
             referencedRelation: "coupons"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orders_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payments: {
@@ -465,6 +487,7 @@ export type Database = {
           failure_reason: string | null
           gateway_session_id: string | null
           gateway_transaction_id: string | null
+          guest_token: string | null
           id: string
           order_id: string
           provider: string
@@ -482,6 +505,7 @@ export type Database = {
           failure_reason?: string | null
           gateway_session_id?: string | null
           gateway_transaction_id?: string | null
+          guest_token?: string | null
           id?: string
           order_id: string
           provider?: string
@@ -499,6 +523,7 @@ export type Database = {
           failure_reason?: string | null
           gateway_session_id?: string | null
           gateway_transaction_id?: string | null
+          guest_token?: string | null
           id?: string
           order_id?: string
           provider?: string
@@ -597,6 +622,7 @@ export type Database = {
       }
       products: {
         Row: {
+          available_from: string | null
           category_id: string | null
           created_at: string
           description: string
@@ -604,6 +630,10 @@ export type Database = {
           id: string
           is_new: boolean
           materials: string[]
+          member_available_from: string | null
+          member_discount_bps: number | null
+          member_discount_eligible: boolean
+          members_only: boolean
           name: string
           price: number
           sku: string
@@ -614,6 +644,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          available_from?: string | null
           category_id?: string | null
           created_at?: string
           description?: string
@@ -621,6 +652,10 @@ export type Database = {
           id?: string
           is_new?: boolean
           materials?: string[]
+          member_available_from?: string | null
+          member_discount_bps?: number | null
+          member_discount_eligible?: boolean
+          members_only?: boolean
           name: string
           price: number
           sku: string
@@ -631,6 +666,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          available_from?: string | null
           category_id?: string | null
           created_at?: string
           description?: string
@@ -638,6 +674,10 @@ export type Database = {
           id?: string
           is_new?: boolean
           materials?: string[]
+          member_available_from?: string | null
+          member_discount_bps?: number | null
+          member_discount_eligible?: boolean
+          members_only?: boolean
           name?: string
           price?: number
           sku?: string
@@ -668,6 +708,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          date_of_birth: string | null
           email: string
           id: string
           name: string
@@ -678,6 +719,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email: string
           id: string
           name?: string
@@ -688,6 +730,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email?: string
           id?: string
           name?: string
@@ -696,6 +739,143 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      membership_config: {
+        Row: {
+          billing_interval: string
+          birthday_reward_points: number
+          currency: string
+          grace_period_days: number
+          id: boolean
+          member_discount_bps: number
+          monthly_price: number
+          points_per_100_bdt: number
+          reward_points_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          billing_interval?: string
+          birthday_reward_points?: number
+          currency?: string
+          grace_period_days?: number
+          id?: boolean
+          member_discount_bps?: number
+          monthly_price?: number
+          points_per_100_bdt?: number
+          reward_points_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          billing_interval?: string
+          birthday_reward_points?: number
+          currency?: string
+          grace_period_days?: number
+          id?: boolean
+          member_discount_bps?: number
+          monthly_price?: number
+          points_per_100_bdt?: number
+          reward_points_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      memberships: {
+        Row: {
+          auto_renew: boolean
+          cancelled_at: string | null
+          created_at: string
+          currency: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          payment_provider: string | null
+          payment_reference: string | null
+          price: number
+          started_at: string
+          status: Database["public"]["Enums"]["membership_status"]
+          tier: Database["public"]["Enums"]["membership_tier"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          cancelled_at?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end: string
+          current_period_start: string
+          id?: string
+          payment_provider?: string | null
+          payment_reference?: string | null
+          price: number
+          started_at?: string
+          status?: Database["public"]["Enums"]["membership_status"]
+          tier?: Database["public"]["Enums"]["membership_tier"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_renew?: boolean
+          cancelled_at?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          payment_provider?: string | null
+          payment_reference?: string | null
+          price?: number
+          started_at?: string
+          status?: Database["public"]["Enums"]["membership_status"]
+          tier?: Database["public"]["Enums"]["membership_tier"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reward_ledger: {
+        Row: {
+          actor_id: string | null
+          balance_after: number
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["reward_ledger_kind"]
+          order_id: string | null
+          points: number
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          balance_after: number
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["reward_ledger_kind"]
+          order_id?: string | null
+          points: number
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          balance_after?: number
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["reward_ledger_kind"]
+          order_id?: string | null
+          points?: number
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_ledger_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rate_limits: {
         Row: {
@@ -881,10 +1061,72 @@ export type Database = {
         }
         Returns: undefined
       }
+      active_membership: {
+        Args: { _user_id: string }
+        Returns: {
+          membership_id: string
+          tier: Database["public"]["Enums"]["membership_tier"]
+          status: Database["public"]["Enums"]["membership_status"]
+          current_period_start: string
+          current_period_end: string
+          auto_renew: boolean
+          cancelled_at: string | null
+        }[]
+      }
+      is_active_member: { Args: { _user_id: string }; Returns: boolean }
+      product_member_discount_bps: { Args: { _product_id: string }; Returns: number }
+      place_membership_order: {
+        Args: { p_user_id: string; p_customer: Json; p_tier?: string }
+        Returns: Json
+      }
+      cancel_membership: {
+        Args: { p_user_id: string; p_immediate?: boolean }
+        Returns: Json
+      }
+      expire_memberships: { Args: Record<string, never>; Returns: number }
+      admin_set_membership: {
+        Args: {
+          p_user_id: string
+          p_status: string
+          p_period_end: string | null
+          p_actor_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
+      admin_adjust_reward_points: {
+        Args: {
+          p_user_id: string
+          p_points: number
+          p_reason: string
+          p_actor_id: string
+        }
+        Returns: Json
+      }
+      redeem_reward_points: {
+        Args: {
+          p_user_id: string
+          p_points: number
+          p_order_id?: string | null
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      award_birthday_reward: { Args: { p_user_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "staff" | "customer"
       coupon_kind: "fixed" | "percent"
+      membership_status: "ACTIVE" | "EXPIRED" | "CANCELLED" | "PAYMENT_FAILED"
+      membership_tier: "NONE" | "CLUB"
+      order_kind: "product" | "membership"
+      reward_ledger_kind:
+        | "EARNED"
+        | "REDEEMED"
+        | "ADJUSTED"
+        | "EXPIRED"
+        | "REVERSED"
+        | "BONUS"
       notification_audience: "user" | "admin"
       order_status:
         | "pending"
@@ -894,7 +1136,7 @@ export type Database = {
         | "delivered"
         | "cancelled"
         | "refunded"
-      payment_method: "cod" | "portpos"
+      payment_method: "cod" | "portpos" | "bkash"
       payment_status:
         | "requires_payment"
         | "processing"

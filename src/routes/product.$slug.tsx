@@ -13,12 +13,47 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { StarRating } from "@/components/StarRating";
 import { StockBadge } from "@/components/StockBadge";
 import { WishlistButton } from "@/components/WishlistButton";
-import { findProduct, formatBDT, stockForSize } from "@/data/catalog";
+import { findProduct, formatBDT, stockForSize, type SizeStock } from "@/data/catalog";
 import { useProduct, useProducts } from "@/lib/catalog-live";
 import { useAddToCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
+import { useMemberPrice, useMembership, usePotentialMemberPrice } from "@/lib/membership";
+import { releaseState } from "@/lib/membership-pricing";
 import { recentlyViewed } from "@/lib/recently-viewed";
 import { createReview, listProductReviews, myReviewEligibility } from "@/lib/reviews.functions";
+
+const fmtReleaseDate = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })
+    : "soon";
+
+function ClubGate({ slug, heading, body }: { slug: string; heading: string; body: string }) {
+  const user = useAuth();
+  return (
+    <div className="mt-9 border border-saaj-champagne/30 p-5">
+      <p className="text-[0.625rem] tracking-[0.28em] text-saaj-champagne">✦ {heading.toUpperCase()}</p>
+      <p className="mt-3 max-w-md text-xs leading-relaxed text-muted-foreground">{body}</p>
+      {user ? (
+        <Link
+          to="/club"
+          className="mt-5 inline-flex items-center gap-2 border border-saaj-champagne px-6 py-3 text-[0.5625rem] tracking-[0.24em] text-saaj-champagne transition-colors hover:bg-saaj-champagne hover:text-background"
+        >
+          JOIN SAAJ CLUB
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.25} />
+        </Link>
+      ) : (
+        <Link
+          to="/auth"
+          search={{ redirect: `/product/${slug}` }}
+          className="mt-5 inline-flex items-center gap-2 border border-saaj-champagne px-6 py-3 text-[0.5625rem] tracking-[0.24em] text-saaj-champagne transition-colors hover:bg-saaj-champagne hover:text-background"
+        >
+          JOIN SAAJ CLUB
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.25} />
+        </Link>
+      )}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/product/$slug")({
   loader: ({ params }) => {
@@ -50,6 +85,11 @@ function ProductPage() {
   const { product: loaded } = Route.useLoaderData();
   const { product: live } = useProduct(loaded.slug);
   const product = live ?? loaded;
+  const user = useAuth();
+  const membership = useMembership();
+  const memberPrice = useMemberPrice(product);
+  const potentialPrice = usePotentialMemberPrice(product);
+  const release = releaseState(product, membership.isMember);
   const { data: products = [] } = useProducts();
   const gallery: string[] = product.gallery?.length ? product.gallery : [product.img];
   const [shot, setShot] = useState(0);
@@ -72,7 +112,9 @@ function ProductPage() {
   // Empty until the live DB fetch resolves (placeholder data intentionally
   // carries no real variant ids) — gates the buy button so it can't be
   // clicked into a false "not ready" error during that brief window.
-  const variantId = size ? product.sizes.find((s) => s.size === size)?.id || undefined : undefined;
+  const variantId = size
+    ? product.sizes.find((s: SizeStock) => s.size === size)?.id || undefined
+    : undefined;
   const related = products.filter(
     (p) => p.slug !== product.slug && p.category === product.category,
   )
@@ -175,46 +217,121 @@ function ProductPage() {
 
             <ProductRatingSummary productId={product.id} />
 
-            <p className="mt-4 text-sm text-saaj-champagne">{formatBDT(product.price)}</p>
+            <div className="mt-4">
+              {memberPrice.isMemberPrice ? (
+                <p className="text-sm">
+                  <span className="text-muted-foreground line-through">
+                    {formatBDT(memberPrice.listPrice)}
+                  </span>{" "}
+                  <span className="text-saaj-champagne">{formatBDT(memberPrice.memberPrice)}</span>
+                  <span className="ml-2 text-[0.5625rem] tracking-[0.18em] text-saaj-champagne/70">
+                    YOUR CLUB PRICE
+                  </span>
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-saaj-champagne">{formatBDT(product.price)}</p>
+                  {potentialPrice.eligible && potentialPrice.saves > 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      <span className="text-saaj-champagne">
+                        {formatBDT(potentialPrice.memberPrice)}
+                      </span>{" "}
+                      for SAAJ Club
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
             <span className="mt-8 block h-px w-14 bg-saaj-line" />
             <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
               {product.detail}
             </p>
 
-            <div className="mt-9">
-              <p className="eyebrow mb-3">Select Size</p>
-              <SizePicker sizes={product.sizes} value={size} onChange={setSize} />
-            </div>
-
-            {size && (
-              <div className="mt-6 flex items-center gap-5">
-                <StockBadge qty={available} />
-                <QtyStepper value={qty} max={Math.max(1, available)} onChange={setQty} />
+            {release.state === "members-only" ? (
+              <ClubGate
+                slug={product.slug}
+                heading="SAAJ Club members only"
+                body="This piece is a SAAJ Club exclusive. Join to unlock it — plus member pricing, early access and reward points."
+              />
+            ) : release.state === "coming-soon" && !release.memberEligibleNow ? (
+              <div className="mt-9 border border-saaj-champagne/30 p-5">
+                <p className="text-[0.625rem] tracking-[0.28em] text-saaj-champagne">COMING SOON</p>
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                  {membership.isMember
+                    ? `Available to SAAJ Club members from ${fmtReleaseDate(release.memberDate)}.`
+                    : `Available to SAAJ Club members first. Public release: ${fmtReleaseDate(release.publicDate)}.`}
+                </p>
+                {!membership.isMember ? (
+                  <Link
+                    to="/club"
+                    className="mt-5 inline-flex items-center gap-2 border border-saaj-champagne px-6 py-3 text-[0.5625rem] tracking-[0.24em] text-saaj-champagne transition-colors hover:bg-saaj-champagne hover:text-background"
+                  >
+                    JOIN SAAJ CLUB
+                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.25} />
+                  </Link>
+                ) : null}
               </div>
-            )}
+            ) : (
+              <>
+                {release.state === "coming-soon" && release.memberEligibleNow ? (
+                  <p className="mt-8 text-[0.625rem] tracking-[0.2em] text-saaj-champagne">
+                    ✦ EARLY ACCESS — SAAJ CLUB · you're seeing this before public release
+                  </p>
+                ) : null}
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                disabled={!size || !variantId || available <= 0 || addToCart.isPending}
-                onClick={() => {
-                  if (!size || !variantId) return;
-                  addToCart.mutate(
-                    { variantId, qty },
-                    {
-                      onSuccess: () => toast.success(`${product.name} — ${size} added to bag`),
-                      onError: (err) =>
-                        toast.error(err instanceof Error ? err.message : "Could not add this to your bag."),
-                    },
-                  );
-                }}
-                className="flex items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:cursor-not-allowed disabled:text-muted-foreground/50 sm:w-72"
-              >
-                {!size ? "Select a size" : !variantId ? "Loading…" : "Add to bag"}
-                <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
-              </button>
-              <WishlistButton slug={product.slug} label="Save" />
-            </div>
+                <div className="mt-9">
+                  <p className="eyebrow mb-3">Select Size</p>
+                  <SizePicker sizes={product.sizes} value={size} onChange={setSize} />
+                </div>
+
+                {size && (
+                  <div className="mt-6 flex items-center gap-5">
+                    <StockBadge qty={available} />
+                    <QtyStepper value={qty} max={Math.max(1, available)} onChange={setQty} />
+                  </div>
+                )}
+
+                <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    disabled={!size || !variantId || available <= 0 || addToCart.isPending}
+                    onClick={() => {
+                      if (!size || !variantId) return;
+                      addToCart.mutate(
+                        { variantId, qty },
+                        {
+                          onSuccess: () => toast.success(`${product.name} — ${size} added to bag`),
+                          onError: (err) =>
+                            toast.error(
+                              err instanceof Error ? err.message : "Could not add this to your bag.",
+                            ),
+                        },
+                      );
+                    }}
+                    className="flex items-center justify-between border border-saaj-line px-6 py-4 text-[0.6875rem] uppercase tracking-[0.24em] transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:cursor-not-allowed disabled:text-muted-foreground/50 sm:w-72"
+                  >
+                    {!size ? "Select a size" : !variantId ? "Loading…" : "Add to bag"}
+                    <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+                  </button>
+                  <WishlistButton slug={product.slug} label="Save" />
+                </div>
+
+                {user && !membership.isMember && potentialPrice.eligible && potentialPrice.saves > 0 ? (
+                  <div className="mt-6 border border-saaj-line p-4">
+                    <p className="text-[0.625rem] tracking-[0.24em] text-saaj-champagne">WANT MORE?</p>
+                    <p className="mt-2 text-[0.6875rem] leading-relaxed text-muted-foreground">
+                      Join SAAJ Club for {formatBDT(membership.config.monthlyPrice)}/month and this
+                      piece is {formatBDT(potentialPrice.memberPrice)} — plus exclusive drops and
+                      early access.
+                    </p>
+                    <Link to="/club" className="rule-link mt-3">
+                      Join SAAJ Club
+                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.25} />
+                    </Link>
+                  </div>
+                ) : null}
+              </>
+            )}
 
             <ul className="mt-10 flex flex-col gap-3">
               {product.materials.map((m: string) => (

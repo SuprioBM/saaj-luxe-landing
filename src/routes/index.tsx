@@ -156,6 +156,26 @@ function Index() {
           </div>
         </section>
 
+        {/* SAAJ Club — subtle membership band */}
+        <section className="border-t border-saaj-line px-5 py-16 md:px-8 md:py-20">
+          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+            <div>
+              <p className="text-[0.625rem] tracking-[0.4em] text-saaj-champagne">✦ SAAJ CLUB — FOR THE FEW.</p>
+              <p className="mt-4 max-w-md font-display text-2xl font-light leading-snug">
+                Exclusive pieces. Early access. Better prices.
+              </p>
+              <p className="mt-3 text-xs tracking-[0.16em] text-muted-foreground">৳50 / MONTH</p>
+            </div>
+            <Link
+              to="/club"
+              className="inline-flex shrink-0 items-center gap-3 border border-saaj-champagne px-10 py-4 text-[0.625rem] tracking-[0.28em] text-saaj-champagne transition-colors hover:bg-saaj-champagne hover:text-background"
+            >
+              JOIN THE CLUB
+              <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+            </Link>
+          </div>
+        </section>
+
         {/* Service bar */}
         <section className="grid grid-cols-1 gap-px border-t border-saaj-line bg-saaj-line sm:grid-cols-2 lg:grid-cols-4">
           {SERVICES.map(({ Icon, title, copy }) => (

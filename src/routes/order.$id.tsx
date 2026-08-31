@@ -56,7 +56,7 @@ function paymentBanner(payment: string | null) {
 }
 
 // Display-only lifecycle order — independent of the DB enum's declaration
-// order, and only using statuses the backend actually has. Online (PortPos)
+// order, and only using statuses the backend actually has. Online (bKash)
 // orders show a "Payment Confirmed" step because order.status only ever
 // reaches 'paid' once finalize_order_paid has run. COD orders never go
 // through that step — order.status moves pending → processing → shipped →
@@ -114,8 +114,8 @@ function OrderPage() {
   const order = orderQuery.data;
 
   // This landing only ever carries `?payment=paid` once, right after the
-  // PortPos "return" leg has verified the transaction server-side (see
-  // src/routes/api/public/payments/portpos.$action.ts) — that's the moment
+  // bKash callback has verified the transaction server-side (see
+  // src/routes/api/public/payments/bkash.callback.ts) — that's the moment
   // online payment actually succeeded, so the bag is emptied here rather
   // than at checkout (an abandoned/failed payment must leave the bag
   // intact so the customer can retry).
@@ -147,6 +147,8 @@ function OrderPage() {
           <div className="mt-16 saaj-skeleton h-64" />
         ) : !order ? (
           <NotFoundState orderId={id} hasToken={Boolean(token)} isLoggedIn={Boolean(user)} />
+        ) : order.orderKind === "membership" ? (
+          <MembershipConfirmation order={order} payment={payment} />
         ) : (
           <div className="mt-14 grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
             <div className="min-w-0">
@@ -249,11 +251,17 @@ function OrderPage() {
               <dl className="mt-6 flex flex-col gap-3 text-xs">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Subtotal</dt>
-                  <dd>{formatBDT(order.subtotal)}</dd>
+                  <dd>{formatBDT(order.subtotal + order.membershipDiscount)}</dd>
                 </div>
+                {order.membershipDiscount > 0 ? (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">SAAJ Club discount</dt>
+                    <dd className="text-saaj-champagne">−{formatBDT(order.membershipDiscount)}</dd>
+                  </div>
+                ) : null}
                 {order.discount > 0 ? (
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Discount</dt>
+                    <dt className="text-muted-foreground">Coupon</dt>
                     <dd className="text-saaj-champagne">−{formatBDT(order.discount)}</dd>
                   </div>
                 ) : null}
@@ -262,6 +270,12 @@ function OrderPage() {
                   <dd>{order.shipping === 0 ? "Complimentary" : formatBDT(order.shipping)}</dd>
                 </div>
               </dl>
+              {order.rewardPointsEarned > 0 ? (
+                <p className="mt-4 text-[0.625rem] leading-relaxed tracking-[0.12em] text-saaj-champagne/80">
+                  ✦ EARNS {order.rewardPointsEarned} SAAJ CLUB POINT
+                  {order.rewardPointsEarned === 1 ? "" : "S"} ONCE {order.paymentMethod === "cod" ? "SHIPPED" : "PAID"}
+                </p>
+              ) : null}
               <span className="mt-6 block h-px w-full bg-saaj-line" />
               <div className="mt-6 flex items-baseline justify-between">
                 <span className="eyebrow">Total</span>
@@ -289,6 +303,70 @@ function OrderPage() {
       ) : null}
 
       <SiteFooter />
+    </div>
+  );
+}
+
+function MembershipConfirmation({
+  order,
+  payment,
+}: {
+  order: OrderDetail;
+  payment: string | null;
+}) {
+  const paid = order.status === "paid" || order.paymentStatus === "succeeded";
+  return (
+    <div className="mt-14 max-w-lg">
+      <p className="text-[0.625rem] tracking-[0.4em] text-saaj-champagne">✦ SAAJ CLUB</p>
+      <p className="mt-6 font-display text-4xl font-light leading-[1.05]">
+        {paid ? `Welcome to the club, ${order.customerName.split(" ")[0]}.` : "Almost there."}
+      </p>
+      <p className="mt-5 text-xs leading-relaxed text-muted-foreground">
+        {paid ? (
+          <>
+            Your SAAJ Club membership is active. Member pricing, exclusive drops, early access,
+            reward points and your birthday reward are all yours now. A confirmation has been sent
+            to {order.customerEmail}.
+          </>
+        ) : payment === "cancelled" || payment === "failed" ? (
+          <>That payment didn't go through, so your membership hasn't started. You can try again from the SAAJ Club page — you haven't been charged.</>
+        ) : (
+          <>We're confirming your {formatBDT(order.total)} payment with bKash. This page will show your membership once it's verified — refresh in a moment.</>
+        )}
+      </p>
+
+      <dl className="mt-10 flex flex-col gap-3 border-y border-saaj-line py-6 text-xs">
+        <div className="flex justify-between">
+          <dt className="text-muted-foreground">Membership</dt>
+          <dd>SAAJ Club — monthly</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-muted-foreground">Paid</dt>
+          <dd>{formatBDT(order.total)}</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-muted-foreground">Reference</dt>
+          <dd>{order.reference}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-8 flex flex-wrap gap-4">
+        <Link
+          to="/account/membership"
+          className="inline-flex items-center gap-3 border border-saaj-champagne px-8 py-3 text-[0.625rem] tracking-[0.24em] text-saaj-champagne transition-colors hover:bg-saaj-champagne hover:text-background"
+        >
+          MANAGE MEMBERSHIP
+          <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+        </Link>
+        <Link
+          to="/shop"
+          search={{ club: "exclusive" }}
+          className="inline-flex items-center gap-3 border border-saaj-line px-8 py-3 text-[0.625rem] tracking-[0.24em] text-muted-foreground transition-colors hover:border-saaj-champagne hover:text-saaj-champagne"
+        >
+          BROWSE EXCLUSIVES
+          <ArrowRight className="h-4 w-4" strokeWidth={1.25} />
+        </Link>
+      </div>
     </div>
   );
 }

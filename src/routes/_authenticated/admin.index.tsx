@@ -7,7 +7,12 @@ import { toast } from "sonner";
 import { AdminShell } from "@/components/AdminShell";
 import { formatBDT } from "@/data/catalog";
 import { adminDashboardStats } from "@/lib/admin/dashboard.functions";
-import { adminKnowledgeStatus, adminReingestKnowledge } from "@/lib/admin/agent.functions";
+import {
+  adminGroqKeyStatus,
+  adminKnowledgeStatus,
+  adminReingestKnowledge,
+  adminResetGroqKeys,
+} from "@/lib/admin/agent.functions";
 
 const TITLE = "Atelier Desk — SAAJ";
 const DESCRIPTION = "SAAJ internal dashboard: revenue, orders and inventory health.";
@@ -122,7 +127,9 @@ function AssistantKnowledgePanel() {
     setBusy(true);
     try {
       const res = await adminReingestKnowledge();
-      toast.success(`Knowledge base refreshed — ${res.total} chunks across ${res.sources.length} sources.`);
+      toast.success(
+        `Knowledge base refreshed — ${res.total} chunks across ${res.sources.length} sources.`,
+      );
       void qc.invalidateQueries({ queryKey: ["admin", "knowledge-status"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not refresh the knowledge base.");
@@ -141,15 +148,18 @@ function AssistantKnowledgePanel() {
         <span className="h-px flex-1 bg-saaj-line" />
       </div>
       <p className="mt-6 max-w-xl text-xs leading-relaxed text-muted-foreground">
-        The SAAJ assistant answers policy, shipping, returns and brand questions from this
-        retrieval store. Live data (prices, stock, orders, membership, rewards) always comes
-        from the database, never from here. Re-ingest after editing the source content in
+        The SAAJ assistant answers policy, shipping, returns and brand questions from this retrieval
+        store. Live data (prices, stock, orders, membership, rewards) always comes from the
+        database, never from here. Re-ingest after editing the source content in
         <span className="text-foreground/80"> src/lib/agent/knowledge-sources.ts</span>.
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
         {status.length ? (
           status.map((s) => (
-            <span key={s.source} className="text-[0.625rem] tracking-[0.16em] text-muted-foreground">
+            <span
+              key={s.source}
+              className="text-[0.625rem] tracking-[0.16em] text-muted-foreground"
+            >
               {s.source.toUpperCase()} · {s.chunks}
             </span>
           ))
@@ -167,7 +177,76 @@ function AssistantKnowledgePanel() {
       >
         {busy ? "REFRESHING" : "RE-INGEST KNOWLEDGE"}
       </button>
+
+      <GroqKeyPanel />
     </section>
+  );
+}
+
+const KEY_STATE_TONE: Record<string, string> = {
+  AVAILABLE: "text-saaj-champagne",
+  COOLDOWN: "text-muted-foreground",
+  DISABLED: "text-destructive",
+};
+
+function GroqKeyPanel() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const { data } = useQuery({
+    queryKey: ["admin", "groq-keys"],
+    queryFn: () => adminGroqKeyStatus(),
+    refetchInterval: 20_000,
+  });
+
+  const reset = async () => {
+    setBusy(true);
+    try {
+      await adminResetGroqKeys({ data: {} });
+      toast.success("Groq keys re-enabled on this server.");
+      void qc.invalidateQueries({ queryKey: ["admin", "groq-keys"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not reset the keys.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-12 border-t border-saaj-line pt-8">
+      <p className="eyebrow">Groq key pool (this server instance)</p>
+      {!data ? (
+        <p className="mt-4 saaj-skeleton h-4 w-56" />
+      ) : (
+        <>
+          <p className="mt-4 text-xs text-muted-foreground">
+            {data.rotationEnabled ? "Rotation on" : "Rotation off"} · {data.poolSize} key
+            {data.poolSize === 1 ? "" : "s"} · {data.totalRequests} req · {data.successfulRequests}{" "}
+            ok · {data.rotations} rotations · {data.count429} × 429 · {data.count5xx} × 5xx ·{" "}
+            {data.invalidKeyCount} invalid · avg {data.averageAttempts} attempts
+          </p>
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5">
+            {data.keys.map((k) => (
+              <span
+                key={k.id}
+                className={`text-[0.625rem] tracking-[0.14em] ${KEY_STATE_TONE[k.state] ?? "text-muted-foreground"}`}
+              >
+                {k.id.toUpperCase()} · {k.state}
+                {k.cooldownMsRemaining > 0 ? ` ${Math.ceil(k.cooldownMsRemaining / 1000)}s` : ""}
+                {k.failureCount > 0 ? ` (${k.failureCount})` : ""}
+              </span>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void reset()}
+            className="mt-5 border border-saaj-line px-6 py-2.5 text-[0.625rem] tracking-[0.24em] text-muted-foreground transition-colors hover:border-saaj-champagne hover:text-saaj-champagne disabled:opacity-40"
+          >
+            {busy ? "RESETTING" : "RE-ENABLE ALL KEYS"}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

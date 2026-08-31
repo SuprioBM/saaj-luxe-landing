@@ -493,3 +493,91 @@ code was rebuilt. The agent is an untrusted reasoning layer — the backend stay
   message returns "The assistant is unavailable right now" — nothing else in the app breaks.
 - RAG is lexical (FTS), not vector — see the migration note. Swapping in embeddings later is a
   small migration + wiring an `embed()` call, with no change to `knowledge-sources.ts`.
+
+---
+
+## Phase 16 — Groq API key rotation & failover (2026-08-31)
+
+Infrastructure-only. Prompts, LangGraph state, thread ids, checkpoints, RAG
+context, tools, streaming and the chat UI are untouched. The agent still
+calls one Groq service; key selection / rotation / cooldown / retry now
+happen invisibly underneath it. Every retry within a request uses the exact
+same `messages` input; failed attempts are never persisted as messages.
+
+### Inspection (deployment reality)
+- Groq client: `src/lib/agent/provider.ts` (`ChatOpenAI`, OpenAI-compatible).
+- Keys: `src/lib/agent/config.ts` (`GROQ_API_KEY` = 5 comma-separated keys).
+- All async; streaming over SSE.
+- Runtime: Cloudflare Workers — isolates, **no Redis, no long-lived process**
+  (the project deliberately uses Postgres, not Redis, for shared state).
+- Decision: an **in-memory pool per isolate** is the right fit. The critical
+  path — retry-within-a-request on a 429 — is entirely local; a warm isolate
+  serving many requests quickly learns which keys are bad. A cold isolate
+  starts optimistic and may waste one attempt before rotating; acceptable.
+  The `GroqKeyManager` class is the seam if cross-isolate coordination is
+  ever needed (swap the arrays for a Supabase-backed store). No new table.
+
+### 16.1 — `src/lib/agent/groq-keys.ts`
+- [x] `classifyGroqError()` — the error-classification layer:
+  429 → cooldown (honours `Retry-After` / `retry-after-ms`); 401/403 →
+  **DISABLE** (not a cooldown); 5xx → provider (may be provider-wide);
+  **400 → `request` (do NOT rotate)** unless the body says the key/account
+  is the problem; network / `AbortError` / timeout → short cooldown;
+  parses a leading status out of the message when there's no `.status`.
+- [x] `GroqKeyManager` — pool with `AVAILABLE | COOLDOWN | DISABLED` states,
+  per-key `failureCount` / `cooldownUntil` / `inFlight` / `lastUsedAt` /
+  success+failure totals. `acquire()` = least-in-flight then least-recently-
+  used (fair rotation + health + concurrency spread, no serialization).
+  Exponential backoff (`GROQ_DEFAULT_COOLDOWN_MS · 2^(n-1)`, capped at
+  `GROQ_MAX_COOLDOWN_MS`); `GROQ_KEY_FAILURE_THRESHOLD` consecutive failures
+  ⇒ full cooldown (lightweight circuit-breaker); a success clears the count
+  (half-open → healthy). `snapshot()` for observability — **internal ids
+  (`groq-key-01`) only, never key values**. Metrics: totalRequests,
+  successfulRequests, rotations, 429/5xx/invalid counts, averageAttempts.
+- [x] `runWithGroqRotation(attempt, mgr)` — the ONLY place rotation lives.
+  Bounded: `min(GROQ_MAX_RETRIES, poolSize)` attempts, then a controlled
+  `GroqUnavailableError` — never an unbounded loop. `attempt(lease,
+  markCommitted)` calls `markCommitted()` on the first visible token; if it
+  then fails → **rethrow, no restart/concat** (spec §17). 400 → fail fast.
+  2 different keys returning 5xx → `GroqUnavailableError` immediately
+  (provider-wide — don't burn the pool). Safe warn-log per key event
+  (`{key_id, class, reason, retry_after_ms, committed, switching_key}`).
+
+### 16.2 — wiring
+- [x] `provider.ts`: `invokeWithRotation(messages, tools, config)` — the Groq
+  service. Rotation off or 1 key ⇒ single call. Otherwise streams
+  `model.stream(messages, config)` per attempt (so LangGraph's
+  `streamMode:"messages"` token streaming still works AND a pre-token
+  failure rotates cleanly), accumulates chunks, returns one `AIMessage`.
+  `maxRetries: 0` on the SDK client — we own retries now.
+- [x] `graph.ts`: the `agent` node calls `invokeWithRotation` (no module-level
+  model; step-cap path just passes `[]` tools). `config` threaded through.
+- [x] `config.ts`: `GROQ_API_KEYS` (preferred), `GROQ_ENABLE_KEY_ROTATION`,
+  `GROQ_MAX_RETRIES`, `GROQ_DEFAULT_COOLDOWN_MS`, `GROQ_MAX_COOLDOWN_MS`,
+  `GROQ_KEY_FAILURE_THRESHOLD`, `GROQ_REQUEST_TIMEOUT_MS`. `.env.example` updated.
+- [x] `admin/agent.functions.ts`: `adminGroqKeyStatus` (per-isolate pool
+  health, no values) + `adminResetGroqKeys`. Panel on Admin → Overview
+  (state per key id, cooldown seconds, rotation/429/5xx counts, "re-enable").
+
+### 16.3 — verification
+- [x] `tsc --noEmit` clean · `vitest` **70/70** (25 new in `groq-keys.test.ts`):
+  classifier (429+Retry-After / 401 / 403 / 5xx / 400-request-vs-auth /
+  network / message-parsed status); manager (LRU fairness, 429→cooldown→skip
+  →recover, 401→DISABLED-permanent, request→untouched, capped backoff,
+  success clears count); rotation loop (normal, 429→next, multi-fail→success,
+  all-429→controlled error + no infinite loop, bounded by min(retries,pool),
+  400→no rotation/fail-fast, provider-wide 5xx→stop at 2, 401→disable+next,
+  committed-mid-stream→terminal, cooldown recovery, concurrent→fair spread +
+  every key released). `vite build` succeeds; `@langchain` stays server-only.
+- [x] Live (dev server + real Groq):
+  · normal question → tokens still stream, tool + RAG still work.
+  · `.env.local` with 2 deliberately-bad keys → both classified `disable`
+    (401), rotated, bounded stop after 2, client got the clean
+    `{"type":"error","message":"Something went wrong. Please try again."}` —
+    **no key value, no stack trace**; server log had `groq-key-01/02` ids only.
+  · `.env.local` with 1 bad + 5 real → requests succeed (first healthy key
+    served); `.env.local` removed → normal operation restored.
+
+### Configuration
+See `.env.example` "Groq key rotation / failover". Defaults: rotation on,
+4 attempts (capped at pool size), 20s base / 120s max cooldown, threshold 4.
